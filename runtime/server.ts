@@ -7,7 +7,7 @@ import type { DataRow, RunEvent } from "../shared/types";
 import { structure } from "../brain/structure";
 import { saveWorkflow, getWorkflow, listWorkflows, getHistory, saveTrace } from "../brain/store";
 import { Recorder } from "./recorder";
-import { replay } from "./player";
+import { replay, closeLiveBrowsers } from "./player";
 import { initSentry } from "./sentry";
 
 initSentry();
@@ -92,6 +92,8 @@ app.post("/api/replay", async (req, res) => {
   const history = await getHistory(workflowId);
   const pristine = history.length ? history[0].wf : await getWorkflow(workflowId);
   if (!pristine) return res.status(404).json({ error: "workflow not found" });
+
+  await closeLiveBrowsers(); // reap the PREVIOUS run's lingering result windows before opening this run's
 
   const control = structuredClone(pristine); // never healed — always hits the brittle selector
   const healing = structuredClone(pristine); // re-grounds live every run; write-back logs to history
