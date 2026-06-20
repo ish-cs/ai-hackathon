@@ -6,7 +6,7 @@ Teach-by-demonstration web automation with a self-healing core. Do a tedious web
 
 ## Locked design decisions (hour-1 calls, already made)
 
-1. **Transport: single Node process.** Brain/Runtime/Web are modules; the runtime serves the UI and streams events over WebSocket. (Band rooms are a later swap — same JSON shapes, see CONTRACT.md.)
+1. **Transport: single Node process.** Brain/Runtime/Web are modules; the runtime serves the UI and streams events over WebSocket.
 2. **Engine: local Playwright Chromium.** The user demonstrates in a real local browser they can click. Browserbase is an optional replay-only stretch (banks that prize) — left out of the critical path because a cloud browser adds live-demo network risk.
 3. **Replay is dataset-driven.** Tab A is the human's teach prop; replay fills the target form from provided `DataRow`s. No source-scraping, so no `extract` action — healing only concerns the write side, which matches the demo.
 4. **The "dead" control agent = our own replay with healing disabled** (`heal: false`). More reliable on stage than a third-party agent, and honest: "the same automation without our healing layer."

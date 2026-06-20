@@ -56,11 +56,10 @@ The novelty ding is the cheapest leg to lose — most hackathon projects are uno
 |---|---|---|---|
 | **Redis** | *"Beyond Caching… Agent memory, vector search, context retrieval… solving real human problems… correctness, scalability, architecture."* | Use Redis as genuine **agent memory** — store workflows + heal-history, not just a cache. We already do (the heal audit trail = persistent agent memory). | **Strong** — load-bearing + on-thesis. Mac Minis + 25k credits. |
 | **Anthropic** | *"projects built with **Claude Code** that tackle meaningful issues in health, education, **economic opportunity**, or any domain where AI could genuinely shift what's possible… take the biggest swing toward the most challenging problem."* | Built with Claude Code (we are). **Lead the narrative with economic empowerment** — automation is a superpower locked behind money/coding skill; we hand it to the 99% who have neither. NOT "we called the API." | **Winnable with the right story** — the biggest prize ($5k credits + Applied AI office hour + SF office visit). Frame = impact, not integration. |
-| **Band** | *"top project… that used Band as a key technology… **at least 2 agents collaborating via the BAND platform**"* (agents coordinate in shared rooms, exchange context). | **Real integration, not a vibe.** Our record / replay / heal agents must actually run as Band agents in shared rooms — code modules don't count. Costs integration time. | **Conditional** — only if we pay the integration tax. Decide hour 1. $1k (split). Band workshop Sat. |
 | **Sentry** | *"builders who go beyond the prompt… technical execution paired with clear communication, collaborative problem-solving… confidence to speak up, course-correct, and lead… **Bonus points** if you leveraged observability or error monitoring."* | This is a **team-dynamics** prize; observability is bonus only. Wire Sentry on our step-failures (cheap, and failure *is* our product) for the bonus, but the win rides on how the team presents under pressure. | **Bonus-tier** — wire it cheap, don't over-invest. Switch 2 each. |
 | **Browserbase** | *"build any agent that uses the web… **must be powered by the Browserbase platform** (browsers, search, fetch, Stagehand, Browse CLI)."* | If we build the engine on **Browserbase/Stagehand** from the start, we qualify for free. Prize value "coming soon." | **Free if we commit the engine** — tradeoff: cloud browser adds live-demo network risk. Keep a local Playwright fallback. |
 
-**Realistic target:** Toolbox main-track win + Redis + Anthropic, with Band/Sentry/Browserbase as honest upside.
+**Realistic target:** Toolbox main-track win + Redis + Anthropic, with Sentry/Browserbase as honest upside.
 
 ---
 
@@ -72,7 +71,7 @@ The novelty ding is the cheapest leg to lose — most hackathon projects are uno
 |---|---|---|
 | **Sat 9 AM** | Check-in opens | — |
 | **Sat 10 AM** | Opening Ceremony, Wheeler Auditorium | Hacking starts after |
-| **Sat (times TBD on live site/app)** | Sponsor workshops | **Must-attend: Band** (learn the platform — required to qualify), **Redis** (Agent Memory pipeline = our exact use case), **Anthropic**, **Sentry**, **Browserbase CLI**. |
+| **Sat (times TBD on live site/app)** | Sponsor workshops | **Must-attend: Redis** (Agent Memory pipeline = our exact use case), **Anthropic**, **Sentry**, **Browserbase CLI**. |
 | **Sat midnight** | **Create the Devpost draft** — project name + all 3 teammates added | *"the only way we can guarantee your project will be judged."* Non-negotiable. |
 | **Sun 11 AM** | **Hard submission deadline on Devpost** | Late = not judged. |
 | **Sun 12 PM** | Edits lock | No changes after. |
@@ -112,15 +111,13 @@ The audience watches one agent die and the other heal itself **on the same failu
 3. **Replay:** The replay-agent executes the saved workflow against new data rows, unattended.
 4. **Heal:** On a step failure, the healer-agent grabs the current DOM, Claude re-identifies the target element by its **semantic intent** (stored from the original recording) rather than the stale selector, patches the step, retries, and writes the fix back to the workflow in **Redis** (the heal-history = our "agent memory"). **Sentry** logs the failure and recovery.
 
-**If we go for the Band prize:** the record-agent, replay-agent, and healer-agent run as actual **Band agents collaborating in shared rooms**, passing the CONTRACT.md shapes between them — not just function calls in one process. This is the integration tax to weigh in hour 1.
-
 **Scope discipline:** keep healing bounded to **two failure types** for the demo — (a) renamed element, (b) moved/changed selector or ID. Do **not** try to handle every possible site change — that's the over-scope trap that blows past 24h. The demo only needs healing to work flawlessly on the specific break we trigger.
 
 ---
 
 ## Two-Person Split — Brain / Hands+Face
 
-Two builders, one clean seam: "the agent that thinks" vs "the agent that acts + what you see." We still ship **three logical agents** (record / replay / heal) — which is what satisfies Band's *"2+ agents collaborating."* Agent count is about software, not headcount.
+Two builders, one clean seam: "the agent that thinks" vs "the agent that acts + what you see." We still ship **three logical agents** (record / replay / heal) — agent count is about software, not headcount.
 
 **Ishaan — the Brain (the hard part the prizes judge).** Pure logic, no browser, no UI. Claude intent-extraction at record time, the structure step (raw trace → parameterized workflow), and the healer (DOM → re-ground by intent → patch + write fix back). Owns the **Redis workflow schema**. This is the moat.
 
@@ -140,7 +137,7 @@ One seam between two people, but integration-not-landing is still the #1 way 24h
 ## Build Priorities (ruthless order)
 
 1. **The 60-second kill shot working:** record → replay → trigger break → heal, on one task. Nothing else matters until this works.
-2. **Sponsor integrations made real:** Redis storing workflows (agent memory), Band agent split *if we commit to it*, Sentry on the failures.
+2. **Sponsor integrations made real:** Redis storing workflows (agent memory), Sentry on the failures.
 3. **UI polish and the live visualization of the heal.**
 4. **Backup demo video** recorded before Sunday (venue-wifi / cloud-browser insurance + Devpost wants one).
 5. **Stretch only if 1–4 are solid:** a second use case, a cleaner workflow-management screen.
@@ -153,4 +150,4 @@ One seam between two people, but integration-not-landing is still the #1 way 24h
 
 ## The 30-Second Team Summary
 
-We're building teach-by-demonstration web automation with a self-healing core. You show it a task once, it learns and replays it, and it repairs itself when the site changes. We're targeting the **Toolbox track** (judged on execution — our strength) and stacking sponsor prizes honestly: **Redis** as real agent memory (strong), **Anthropic** framed as economic empowerment + built with Claude Code (winnable), **Band** *if* we run the agents on its platform, **Sentry** + **Browserbase** as cheap upside. We are **not** claiming novelty — the self-healing tech exists in QA tools — so we win on a flawless demo, real usability for non-coders, and clean sponsor integration. The whole project rides on one 60-second split-screen demo beat: **our agent heals while a normal agent crashes.** Build that first, polish around it.
+We're building teach-by-demonstration web automation with a self-healing core. You show it a task once, it learns and replays it, and it repairs itself when the site changes. We're targeting the **Toolbox track** (judged on execution — our strength) and stacking sponsor prizes honestly: **Redis** as real agent memory (strong), **Anthropic** framed as economic empowerment + built with Claude Code (winnable), **Sentry** + **Browserbase** as cheap upside. We are **not** claiming novelty — the self-healing tech exists in QA tools — so we win on a flawless demo, real usability for non-coders, and clean sponsor integration. The whole project rides on one 60-second split-screen demo beat: **our agent heals while a normal agent crashes.** Build that first, polish around it.
