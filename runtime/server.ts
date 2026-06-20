@@ -76,6 +76,11 @@ app.get("/api/workflows/:id", async (req, res) => {
   res.json(wf);
 });
 
+// Agent-memory trail: every version ever saved to Redis (workflow:{id}:history). Feeds the memory panel.
+app.get("/api/workflows/:id/history", async (req, res) => {
+  res.json(await getHistory(req.params.id));
+});
+
 // ---- Replay: runs BOTH lanes (control dies | healing survives) for the split-screen kill shot ----
 // Both lanes start from the PRISTINE original (version 1, from history), deep-cloned, EVERY run.
 // Why this matters: the healing lane writes its re-grounded selector back to Redis (the agent-memory

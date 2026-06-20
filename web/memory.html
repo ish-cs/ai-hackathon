@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mimic — Agent Memory</title>
+    <style>
+      /* Shares Mimic's palette (web/index.html) so the two screens read as one product. */
+      :root { --bg:#0c0d10; --panel:#15171c; --panel2:#1b1e25; --line:#262a33; --ink:#e8eaed; --dim:#8b909c;
+              --ok:#39d98a; --fail:#ff5d5d; --heal:#5da9ff; --accent:#ffb454; --redis:#ff4438; }
+      * { box-sizing: border-box; }
+      body { margin:0; background:var(--bg); color:var(--ink); font:14px/1.5 ui-sans-serif,system-ui,sans-serif; }
+      header { padding:16px 24px; border-bottom:1px solid var(--line); display:flex; gap:16px; align-items:baseline; flex-wrap:wrap; }
+      h1 { font-size:18px; margin:0; }
+      header .tag { color:var(--dim); font-size:13px; }
+      .redis-pill { margin-left:auto; display:inline-flex; align-items:center; gap:8px; font-size:12px; color:var(--dim);
+                    border:1px solid var(--line); border-radius:999px; padding:5px 12px; }
+      .redis-pill b { color:var(--redis); }
+      .dot { width:8px; height:8px; border-radius:50%; background:var(--dim); display:inline-block; }
+      .dot.live { background:var(--ok); box-shadow:0 0 0 0 rgba(57,217,138,.6); animation:pulse 1.8s infinite; }
+      @keyframes pulse { 0%{box-shadow:0 0 0 0 rgba(57,217,138,.5)} 70%{box-shadow:0 0 0 7px rgba(57,217,138,0)} 100%{box-shadow:0 0 0 0 rgba(57,217,138,0)} }
+
+      .bar { padding:12px 24px; border-bottom:1px solid var(--line); display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+      select, button { background:var(--panel); color:var(--ink); border:1px solid var(--line); border-radius:8px; padding:8px 12px; font-size:13px; cursor:pointer; }
+      button:hover, select:hover { border-color:var(--accent); }
+      .stat { display:inline-flex; flex-direction:column; padding:6px 14px; border:1px solid var(--line); border-radius:10px; background:var(--panel); }
+      .stat b { font-size:18px; line-height:1.1; }
+      .stat span { font-size:11px; color:var(--dim); text-transform:uppercase; letter-spacing:.04em; }
+
+      .wrap { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.1fr); gap:18px; padding:18px 24px; align-items:start; }
+      .card { background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:18px; }
+      .card h2 { font-size:13px; margin:0 0 14px; color:var(--dim); text-transform:uppercase; letter-spacing:.05em; }
+
+      .meta-row { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
+      .chip { font-size:12px; border:1px solid var(--line); border-radius:999px; padding:4px 10px; color:var(--ink); background:var(--panel2); }
+      .chip b { color:var(--accent); }
+      .url { font-family:ui-monospace,monospace; font-size:12px; color:var(--dim); word-break:break-all; margin-bottom:14px; }
+
+      .step { border:1px solid var(--line); border-radius:10px; padding:12px; margin-bottom:10px; background:var(--panel2); }
+      .step .act { font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--accent); font-weight:600; }
+      .step .intent { margin:4px 0 8px; font-size:13.5px; color:var(--ink); }
+      .step .sel { font-family:ui-monospace,monospace; font-size:12px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+      .sel .lbl { color:var(--dim); }
+      .sel code { background:#0e1014; border:1px solid var(--line); border-radius:6px; padding:2px 7px; color:var(--heal); }
+      .sel .healed-badge { font-size:11px; color:var(--heal); border:1px solid var(--heal); border-radius:999px; padding:1px 8px; }
+
+      /* Heal-memory timeline */
+      .timeline { position:relative; padding-left:18px; }
+      .timeline::before { content:""; position:absolute; left:5px; top:4px; bottom:4px; width:2px; background:var(--line); }
+      .tl { position:relative; margin-bottom:14px; }
+      .tl::before { content:""; position:absolute; left:-16px; top:4px; width:10px; height:10px; border-radius:50%; background:var(--heal); border:2px solid var(--bg); }
+      .tl.flash::before { background:var(--ok); box-shadow:0 0 0 5px rgba(57,217,138,.25); }
+      .tl .when { font-size:11px; color:var(--dim); }
+      .tl .head { font-size:13px; margin:2px 0 6px; }
+      .tl .diff { font-family:ui-monospace,monospace; font-size:12px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+      .diff .old { color:var(--fail); text-decoration:line-through; opacity:.8; }
+      .diff .arrow { color:var(--dim); }
+      .diff .new { color:var(--ok); }
+      .tl .why { font-size:12px; color:var(--dim); margin-top:6px; }
+      .conf { display:inline-flex; align-items:center; gap:6px; font-size:11px; color:var(--dim); margin-top:6px; }
+      .conf .track { width:80px; height:5px; border-radius:3px; background:var(--line); overflow:hidden; }
+      .conf .fill { height:100%; background:var(--heal); }
+
+      .empty { color:var(--dim); font-size:13px; padding:24px 0; text-align:center; }
+      .keyline { font-family:ui-monospace,monospace; font-size:11px; color:var(--dim); margin-top:12px; }
+      .keyline b { color:var(--redis); }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Mimic · Agent Memory</h1>
+      <span class="tag">Every heal, remembered in Redis — the agent's long-term memory.</span>
+      <span class="redis-pill"><span class="dot" id="ws-dot"></span> stored in <b>Redis</b></span>
+    </header>
+
+    <div class="bar">
+      <select id="picker"><option>loading…</option></select>
+      <button id="refresh">↻ Refresh</button>
+      <div class="stat"><b id="st-version">—</b><span>current version</span></div>
+      <div class="stat"><b id="st-snaps">—</b><span>versions in Redis</span></div>
+      <div class="stat"><b id="st-heals">—</b><span>heals remembered</span></div>
+    </div>
+
+    <div class="wrap">
+      <div class="card">
+        <h2>The recipe — what the agent learned</h2>
+        <div class="meta-row" id="params"></div>
+        <div class="url" id="url"></div>
+        <div id="steps"></div>
+        <div class="keyline" id="keyline"></div>
+      </div>
+      <div class="card">
+        <h2>Heal memory — how it survived change</h2>
+        <div class="timeline" id="timeline"><div class="empty">Pick a workflow. Heals appear here as the agent re-grounds broken steps.</div></div>
+      </div>
+    </div>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+      let currentId = null;
+      let knownHealCount = 0;
+
+      const ago = (ts) => {
+        const s = Math.max(0, Math.round((Date.now() - ts) / 1000));
+        if (s < 60) return `${s}s ago`;
+        if (s < 3600) return `${Math.round(s / 60)}m ago`;
+        return `${Math.round(s / 3600)}h ago`;
+      };
+
+      async function loadList() {
+        const wfs = await (await fetch("/api/workflows")).json();
+        const picker = $("picker");
+        if (!wfs.length) { picker.innerHTML = "<option>— no workflows yet —</option>"; return; }
+        picker.innerHTML = wfs
+          .map((w) => `<option value="${w.workflowId}">${w.task} · ${w.workflowId} (v${w.version})</option>`)
+          .join("");
+        if (!currentId || !wfs.some((w) => w.workflowId === currentId)) currentId = wfs[0].workflowId;
+        picker.value = currentId;
+        await loadOne(currentId);
+      }
+
+      async function loadOne(id, flashNew = false) {
+        currentId = id;
+        const [wf, history] = await Promise.all([
+          fetch(`/api/workflows/${id}`).then((r) => r.json()),
+          fetch(`/api/workflows/${id}/history`).then((r) => r.json()),
+        ]);
+        render(wf, history, flashNew);
+      }
+
+      function render(wf, history, flashNew) {
+        // Flatten every heal across every step into one chronological memory log.
+        const heals = [];
+        for (const s of wf.steps) for (const h of s.healHistory || []) heals.push({ ...h, stepId: s.stepId, intent: s.intent });
+        heals.sort((a, b) => a.timestamp - b.timestamp);
+
+        $("st-version").textContent = "v" + wf.version;
+        $("st-snaps").textContent = history.length;
+        $("st-heals").textContent = heals.length;
+
+        $("params").innerHTML = wf.parameters.length
+          ? wf.parameters.map((p) => `<span class="chip"><b>{${p.name}}</b> e.g. ${p.example}</span>`).join("")
+          : '<span class="chip">no variables — fixed task</span>';
+        $("url").textContent = wf.startUrl;
+        $("keyline").innerHTML = `Redis keys → <b>workflow:${wf.workflowId}</b> · <b>workflow:${wf.workflowId}:history</b>`;
+
+        $("steps").innerHTML = wf.steps
+          .map((s) => {
+            const healed = (s.healHistory || []).some((h) => h.healed);
+            return `<div class="step">
+              <div class="act">${s.action}${s.valueFrom ? ` · {${s.valueFrom}}` : ""}</div>
+              <div class="intent">${s.intent}</div>
+              <div class="sel"><span class="lbl">now targets</span><code>${s.selector}</code>
+                ${healed ? '<span class="healed-badge">↻ re-grounded</span>' : ""}</div>
+            </div>`;
+          })
+          .join("");
+
+        const tl = $("timeline");
+        if (!heals.length) {
+          tl.innerHTML = '<div class="empty">No heals yet. Run this workflow against a broken page — the agent re-grounds the step and writes the fix here.</div>';
+        } else {
+          const newCount = heals.length - knownHealCount;
+          tl.innerHTML = heals
+            .map((h, i) => {
+              const flash = flashNew && i >= heals.length - newCount;
+              const conf = Math.round((h.confidence ?? 0) * 100);
+              const diff = h.healed
+                ? `<span class="old">${h.oldSelector}</span><span class="arrow">→</span><span class="new">${h.newSelector}</span>`
+                : `<span class="old">${h.oldSelector}</span><span class="arrow">→</span><span class="new" style="color:var(--fail)">refused to guess</span>`;
+              return `<div class="tl ${flash ? "flash" : ""}">
+                <div class="when">${ago(h.timestamp)} · step ${h.stepId}</div>
+                <div class="head">${h.intent}</div>
+                <div class="diff">${diff}</div>
+                <div class="why">${h.reasoning || ""}</div>
+                <div class="conf">confidence <span class="track"><span class="fill" style="width:${conf}%"></span></span> ${conf}%</div>
+              </div>`;
+            })
+            .join("");
+        }
+        knownHealCount = heals.length;
+      }
+
+      // Live: same WebSocket bus as the split-screen. When a heal lands or a run finishes,
+      // re-read Redis so the memory grows on-screen in real time, in lockstep with the demo.
+      function connectWs() {
+        const ws = new WebSocket(`ws://${location.host}`);
+        ws.onopen = () => $("ws-dot").classList.add("live");
+        ws.onclose = () => { $("ws-dot").classList.remove("live"); setTimeout(connectWs, 1500); };
+        ws.onmessage = (e) => {
+          const ev = JSON.parse(e.data);
+          if (!currentId) return;
+          if ((ev.kind === "heal" && ev.result && ev.result.healed) || ev.kind === "run_done") {
+            loadOne(currentId, true);
+          }
+        };
+      }
+
+      $("picker").onchange = (e) => loadOne(e.target.value);
+      $("refresh").onclick = () => loadList();
+      loadList();
+      connectWs();
+    </script>
+  </body>
+</html>
