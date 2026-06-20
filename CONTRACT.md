@@ -161,9 +161,16 @@ trace:{traceId}                  → JSON RawTrace (kept for re-structuring / de
 
 ---
 
+## Transport — two modes, same shapes
+
+The JSON shapes above are the contract **regardless of transport.** Pick the transport in hour one:
+
+- **Default (fastest to build): one Node process** — Brain/Hands/Face are modules, lanes call each other directly, an event emitter feeds Face's live viz. Lowest risk for the hour-4 end-to-end checkpoint.
+- **Band mode (only if we commit to the Band prize): agents in shared rooms** — record-agent / replay-agent / healer-agent run as real Band agents, and these exact shapes (`RawTrace`, `Workflow`, `HealRequest`, `HealResult`) become the messages they exchange in Band rooms. This satisfies *"2+ agents collaborating via the BAND platform."* Costs integration time — the data contract doesn't change, only how it moves. Decide before building so Hands/Brain wire to the right transport once.
+
 ## Open questions to lock in hour one
 
-- [ ] Transport between lanes — direct function calls (monorepo, one process) or HTTP/websocket? Default assumption: **one Node process, function calls + an event emitter for Face's live viz.**
+- [ ] **Transport: single-process vs Band rooms** (see above) — this gates the Band prize; decide first.
 - [ ] How does Hands "capture user actions" in record mode — Playwright codegen/trace, CDP listeners, or a thin DOM event logger injected into the page? **Pick the lowest-risk one by hour 1.**
 - [ ] `domSnapshot` / `liveDom` size cap — trim to the relevant subtree to keep Claude prompts cheap. Agree a max.
 - [ ] Which break types the demo triggers (must match `Heal` scope): **renamed element + moved/changed selector only.** No others.
