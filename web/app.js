@@ -11,12 +11,84 @@ function laneEls(lane) {
   return { steps: $(`${key}-steps`), status: $(`${key}-status`) };
 }
 
+const lastFailed = {}; // lane -> { stepId, selector } — the selector that missed, for the heal card
+
+function ring(confidence) {
+  const pct = Math.round(confidence * 100);
+  const R = 16, C = 2 * Math.PI * R;
+  const NS = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(NS, "svg");
+  svg.setAttribute("viewBox", "0 0 40 40");
+  svg.classList.add("ring");
+  svg.innerHTML =
+    `<circle class="ring-bg" cx="20" cy="20" r="${R}"></circle>` +
+    `<circle class="ring-fg" cx="20" cy="20" r="${R}" stroke-dasharray="${C}" stroke-dashoffset="${C}" transform="rotate(-90 20 20)"></circle>` +
+    `<text class="ring-txt" x="20" y="24" text-anchor="middle">${pct}%</text>`;
+  svg.dataset.offset = String(C * (1 - confidence));
+  return svg;
+}
+
+function healCard(result, oldSelector) {
+  const card = document.createElement("div");
+  card.className = result.healed ? "heal-card" : "heal-card refused";
+
+  const head = document.createElement("div");
+  head.className = "hc-head";
+  head.textContent = result.healed ? "⚡ RE-GROUNDED by intent" : "HELD BACK — refused to guess";
+  card.appendChild(head);
+
+  if (result.healed) {
+    if (oldSelector) {
+      const oldEl = document.createElement("div");
+      oldEl.className = "hc-old";
+      oldEl.textContent = oldSelector;
+      card.appendChild(oldEl);
+      const arrow = document.createElement("div");
+      arrow.className = "hc-arrow";
+      arrow.textContent = "↓";
+      card.appendChild(arrow);
+    }
+    const newEl = document.createElement("div");
+    newEl.className = "hc-new";
+    newEl.textContent = result.newSelector;
+    card.appendChild(newEl);
+    card.appendChild(ring(result.confidence));
+  }
+
+  const reason = document.createElement("div");
+  reason.className = "hc-reason";
+  reason.textContent = result.reasoning;
+  card.appendChild(reason);
+
+  requestAnimationFrame(() => {
+    card.classList.add("reveal");
+    const fg = card.querySelector(".ring-fg");
+    const svg = card.querySelector(".ring");
+    if (fg && svg) fg.style.strokeDashoffset = svg.dataset.offset;
+  });
+  return card;
+}
+
+function setLaneState(lane, state) {
+  const key = lane === "control" ? "control" : "healing";
+  const laneEl = document.querySelector(`.lane.${key}`);
+  const status = $(`${key}-status`);
+  laneEl.classList.remove("crashed", "completed");
+  laneEl.classList.add(state);
+  status.textContent = state === "completed" ? "✓ COMPLETED" : "💀 CRASHED";
+  status.className = `status big ${state}`;
+}
+
 function handle(ev) {
   log(`[${ev.lane ?? "-"}] ${ev.kind} ${ev.result ? JSON.stringify(ev.result).slice(0, 120) : ""}`);
   if (ev.kind === "run_start") {
     const { steps, status } = laneEls(ev.lane);
     steps.innerHTML = "";
     status.textContent = `running — row ${JSON.stringify(ev.row)}`;
+    delete lastFailed[ev.lane];
+    const laneEl = document.querySelector(`.lane.${ev.lane === "control" ? "control" : "healing"}`);
+    laneEl.classList.remove("crashed", "completed");
+    status.className = "status";
   } else if (ev.kind === "step") {
     const { steps } = laneEls(ev.lane);
     const r = ev.result;
@@ -29,18 +101,13 @@ function handle(ev) {
     right.textContent = r.attemptedSelector + (r.error ? " — " + r.error.slice(0, 40) : "");
     row.append(left, right);
     steps.appendChild(row);
+    if (r.status === "failed") lastFailed[ev.lane] = { stepId: r.stepId, selector: r.attemptedSelector };
   } else if (ev.kind === "heal") {
     const { steps } = laneEls(ev.lane);
-    const r = ev.result;
-    const note = document.createElement("div");
-    note.className = "heal-note";
-    note.textContent = r.healed
-      ? `↻ healed ${r.stepId} → ${r.newSelector}  (${Math.round(r.confidence * 100)}%) — ${r.reasoning}`
-      : `✗ could not heal ${r.stepId} — ${r.reasoning}`;
-    steps.appendChild(note);
+    const old = lastFailed[ev.lane] ? lastFailed[ev.lane].selector : null;
+    steps.appendChild(healCard(ev.result, old));
   } else if (ev.kind === "run_done") {
-    const { status } = laneEls(ev.lane);
-    status.textContent = ev.ok ? "✓ completed" : "✗ crashed";
+    setLaneState(ev.lane, ev.ok ? "completed" : "crashed");
   }
 }
 

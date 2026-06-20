@@ -31,6 +31,35 @@
       .step.healed { border-color:var(--heal); background:rgba(93,169,255,.08); }
       .step .s { color:var(--dim); }
       .heal-note { font-size:12px; color:var(--heal); padding:4px 10px; margin-bottom:6px; }
+      .heal-card { border:1px solid var(--heal); border-radius:10px; padding:10px 12px; margin:6px 0;
+                   background:rgba(93,169,255,.06); display:grid; gap:6px; opacity:0; transform:translateY(6px);
+                   transition:opacity .25s ease, transform .25s ease; }
+      .heal-card.reveal { opacity:1; transform:none; }
+      .heal-card .hc-head { font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--heal); font-weight:700; }
+      .heal-card .hc-old { font-family:ui-monospace,monospace; font-size:12px; color:var(--fail); position:relative; width:max-content; opacity:.7; }
+      .heal-card .hc-old::after { content:""; position:absolute; left:0; top:50%; height:1px; width:0; background:var(--fail); transition:width .3s ease; }
+      .heal-card.reveal .hc-old::after { width:100%; }
+      .heal-card .hc-arrow { color:var(--dim); font-size:14px; opacity:0; transform:translateY(-4px);
+                             transition:opacity .35s ease .3s, transform .35s ease .3s; }
+      .heal-card .hc-new { font-family:ui-monospace,monospace; font-size:13px; color:var(--ok); font-weight:600; opacity:0; transform:translateY(-4px);
+                           transition:opacity .35s ease .3s, transform .35s ease .3s; }
+      .heal-card.reveal .hc-arrow, .heal-card.reveal .hc-new { opacity:1; transform:none; }
+      .heal-card .hc-reason { font-size:12px; color:var(--dim); max-height:60px; overflow:auto; line-height:1.4;
+                              opacity:0; transition:opacity .4s ease .7s; }
+      .heal-card.reveal .hc-reason { opacity:1; }
+      .heal-card .ring { width:40px; height:40px; }
+      .ring-bg { fill:none; stroke:var(--line); stroke-width:4; }
+      .ring-fg { fill:none; stroke:var(--ok); stroke-width:4; stroke-linecap:round; transition:stroke-dashoffset .6s ease .7s; }
+      .ring-txt { fill:var(--ink); font-size:11px; font-family:ui-monospace,monospace; }
+      .heal-card.refused { border-color:var(--accent); background:rgba(255,180,84,.06); }
+      .heal-card.refused .hc-head { color:var(--accent); }
+      .lane.crashed { border-color:var(--fail); box-shadow:0 0 0 1px var(--fail) inset; }
+      .lane.completed { border-color:var(--ok); box-shadow:0 0 0 1px var(--ok) inset; }
+      .status.big { font-size:20px; font-weight:800; letter-spacing:.02em; }
+      .status.big.completed { color:var(--ok); }
+      .status.big.crashed { color:var(--fail); }
+      .lane.crashed .step.failed { animation:pulse 1s ease infinite; }
+      @keyframes pulse { 0%,100% { background:rgba(255,93,93,.08); } 50% { background:rgba(255,93,93,.22); } }
       .status { font-size:12px; color:var(--dim); }
       #log { padding:12px 24px; border-top:1px solid var(--line); font-family:ui-monospace,monospace;
              font-size:11px; color:var(--dim); max-height:160px; overflow:auto; white-space:pre-wrap; }

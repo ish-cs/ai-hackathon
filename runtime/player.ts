@@ -72,13 +72,18 @@ export async function replay(wf: Workflow, row: DataRow, opts: ReplayOpts): Prom
         const error = err instanceof Error ? err.message : String(err);
         const dom = await liveDom(page);
 
+        // Both lanes surface the miss the same way — the dead selector, which the UI strikes
+        // through. step.selector is still the original broken selector here; tryHeal only mutates
+        // it on a verified heal. Emitting this for the healing lane too is what feeds the heal
+        // card's old→new story (the strike-through line).
+        opts.emit({
+          kind: "step",
+          lane: opts.lane,
+          result: stepResult(wf, step, "failed", step.selector, error, dom, Date.now() - started),
+        });
+
         // Control lane: no healing — it dies here, exactly like a normal browser agent.
         if (!opts.heal) {
-          opts.emit({
-            kind: "step",
-            lane: opts.lane,
-            result: stepResult(wf, step, "failed", step.selector, error, dom, Date.now() - started),
-          });
           captureFailure("step failed (control, no heal)", { workflowId: wf.workflowId, stepId: step.stepId, error });
           ok = false;
           break;
@@ -87,11 +92,6 @@ export async function replay(wf: Workflow, row: DataRow, opts: ReplayOpts): Prom
         // Healing lane: re-ground by intent, retry, verify — bounded attempts.
         const recovered = await tryHeal(page, wf, step, value, opts);
         if (!recovered) {
-          opts.emit({
-            kind: "step",
-            lane: opts.lane,
-            result: stepResult(wf, step, "failed", step.selector, error, dom, Date.now() - started),
-          });
           captureFailure("step failed (heal exhausted)", { workflowId: wf.workflowId, stepId: step.stepId, error });
           ok = false;
           break;
