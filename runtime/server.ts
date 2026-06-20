@@ -5,7 +5,7 @@ import express from "express";
 import { WebSocketServer, WebSocket } from "ws";
 import type { DataRow, RunEvent } from "../shared/types";
 import { structure } from "../brain/structure";
-import { saveWorkflow, getWorkflow, listWorkflows, saveTrace } from "../brain/store";
+import { saveWorkflow, getWorkflow, listWorkflows, getHistory, saveTrace } from "../brain/store";
 import { Recorder } from "./recorder";
 import { replay } from "./player";
 import { initSentry } from "./sentry";
@@ -77,15 +77,24 @@ app.get("/api/workflows/:id", async (req, res) => {
 });
 
 // ---- Replay: runs BOTH lanes (control dies | healing survives) for the split-screen kill shot ----
+// Both lanes start from the PRISTINE original (version 1, from history), deep-cloned, EVERY run.
+// Why this matters: the healing lane writes its re-grounded selector back to Redis (the agent-memory
+// trail). If the control lane re-read the LIVE workflow, then after the first heal it would inherit
+// that cured selector and stop crashing — the split-screen would only work once. Reading v1 keeps
+// control brittle so the kill shot is repeatable; heal write-backs still accrue in history.
 app.post("/api/replay", async (req, res) => {
   const { workflowId, row, breakSite } = req.body as { workflowId: string; row: DataRow; breakSite?: boolean };
-  const control = await getWorkflow(workflowId);
-  const healing = await getWorkflow(workflowId); // independent copy — healing mutates its selectors
-  if (!control || !healing) return res.status(404).json({ error: "workflow not found" });
+  const history = await getHistory(workflowId);
+  const pristine = history.length ? history[0].wf : await getWorkflow(workflowId);
+  if (!pristine) return res.status(404).json({ error: "workflow not found" });
+
+  const control = structuredClone(pristine); // never healed — always hits the brittle selector
+  const healing = structuredClone(pristine); // re-grounds live every run; write-back logs to history
+  healing.version = history.length; // onHeal bumps this → monotonic v2, v3, … in the memory trail
 
   // Demo harness: ?break=1 makes the mock page rename Submit→Send so #submit-btn misses.
   if (breakSite) {
-    const sep = control.startUrl.includes("?") ? "&" : "?";
+    const sep = pristine.startUrl.includes("?") ? "&" : "?";
     control.startUrl += `${sep}break=1`;
     healing.startUrl += `${sep}break=1`;
   }
