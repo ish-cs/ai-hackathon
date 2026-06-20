@@ -140,3 +140,21 @@ function run(breakSite) {
 }
 $("run").onclick = () => run(false);
 $("run-break").onclick = () => run(true);
+
+// Auto-load a saved workflow on page load so the demo is click-and-go (no manual id paste).
+// Only fills an empty box, so recording in-session (which sets #wf on Stop) always wins.
+(async () => {
+  try {
+    if ($("wf").value) return;
+    const wfs = await (await fetch("/api/workflows")).json();
+    if (Array.isArray(wfs) && wfs.length) {
+      const wf = wfs[0];
+      $("wf").value = wf.workflowId;
+      log(`[workflow] auto-loaded ${wf.workflowId} — ${wf.steps.length} steps, ${wf.parameters.length} params${wfs.length > 1 ? ` (${wfs.length} saved; paste another id to switch)` : ""}`);
+    } else {
+      log("[workflow] none saved yet — Record one, or it won't have a workflow to Run");
+    }
+  } catch (e) {
+    log("[workflow] auto-load failed: " + e.message);
+  }
+})();
