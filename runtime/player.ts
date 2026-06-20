@@ -1,34 +1,25 @@
-import { chromium, type Page, type Browser } from "playwright";
+import { type Page } from "playwright";
 import type { DataRow, RunEvent, StepResult, Workflow, WorkflowStep, HealResult } from "../shared/types";
+import { openBrowser, type OpenedBrowser } from "./browser";
 import { heal } from "../brain/heal";
 import { captureFailure } from "./sentry";
 
 const STEP_TIMEOUT = 3000;
 const MAX_HEAL_ATTEMPTS = 2;
 
-// ── Demo presentation: two labeled, side-by-side windows that LINGER on a colored verdict ──
-// control → LEFT, healing → RIGHT. Geometry tuned for a 16" MacBook Pro (scaled ~1728×1117) —
-// tweak LANE_X / LANE_WINDOW if your display differs. Windows stay open after a run so the
-// audience can SEE one fail (red frame) and one succeed (green frame) side by side; the next
-// /api/replay reaps the previous run's windows via closeLiveBrowsers().
-const LANE_WINDOW = { width: 780, height: 960, y: 40 };
-const LANE_X: Record<"control" | "healing", number> = { control: 24, healing: 824 };
-const liveBrowsers = new Set<Browser>();
+// ── Demo presentation: two labeled, side-by-side lanes that LINGER on a colored verdict ──
+// control → LEFT, healing → RIGHT. Local mode → two OS windows; Browserbase mode → two live-view
+// iframes inside the web UI (the same page-side banners/borders render INSIDE them). Lanes stay
+// open after a run so the audience SEES one fail (red) and one succeed (green); the next
+// /api/replay reaps the previous run's browsers/sessions via closeLiveBrowsers(). The local window
+// geometry now lives in browser.ts (the engine seam).
+const liveBrowsers = new Set<OpenedBrowser>();
 
 export async function closeLiveBrowsers(): Promise<void> {
   for (const b of liveBrowsers) {
-    try { await b.close(); } catch { /* already closed */ }
+    try { await b.close(); } catch { /* already closed (window OR cloud session) */ }
     liveBrowsers.delete(b);
   }
-}
-
-async function launchLaneBrowser(lane: "control" | "healing"): Promise<Browser> {
-  const browser = await chromium.launch({
-    headless: false,
-    args: [`--window-position=${LANE_X[lane]},${LANE_WINDOW.y}`, `--window-size=${LANE_WINDOW.width},${LANE_WINDOW.height}`],
-  });
-  liveBrowsers.add(browser);
-  return browser;
 }
 
 /** Banner across the top of each window so it's unmistakably the normal vs the self-healing agent. */
@@ -123,8 +114,11 @@ async function liveDom(page: Page): Promise<string> {
 
 export async function replay(wf: Workflow, row: DataRow, opts: ReplayOpts): Promise<boolean> {
   opts.emit({ kind: "run_start", lane: opts.lane, workflowId: wf.workflowId, row });
-  const browser = await launchLaneBrowser(opts.lane);
-  const page = await browser.newPage({ viewport: null }); // viewport: null → page fills the positioned window
+  const opened = await openBrowser({ lane: opts.lane });
+  liveBrowsers.add(opened); // reaped on the next run by closeLiveBrowsers() — local window OR cloud session
+  const page = opened.page;
+  // Browserbase: hand the UI this lane's live-view URL so it can embed the cloud browser as an iframe.
+  if (opened.liveViewUrl) opts.emit({ kind: "liveview", lane: opts.lane, url: opened.liveViewUrl });
   let ok = true;
 
   try {

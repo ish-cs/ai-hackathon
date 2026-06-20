@@ -4,6 +4,11 @@
 // Captures the user's actions (field change -> input/select, click -> click/submit) and posts
 // each one back to the Node recorder via the exposed window.__record binding.
 (() => {
+  // Idempotent: this runs via addInitScript (fresh navigations) AND via a post-goto evaluate
+  // (needed over Browserbase CDP, where the pre-existing page's navigation skips init scripts).
+  // The guard ensures listeners attach exactly once either way.
+  if (window.__mimicCaptureAttached) return;
+  window.__mimicCaptureAttached = true;
   const post = (a) => window.__record(a);
 
   const selectorFor = (el) => {

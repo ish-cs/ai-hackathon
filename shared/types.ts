@@ -128,4 +128,7 @@ export type RunEvent =
   | { kind: "step"; lane: "healing" | "control"; result: StepResult }
   | { kind: "heal"; lane: "healing" | "control"; result: HealResult }
   | { kind: "run_start"; lane: "healing" | "control"; workflowId: string; row: DataRow }
-  | { kind: "run_done"; lane: "healing" | "control"; workflowId: string; ok: boolean };
+  | { kind: "run_done"; lane: "healing" | "control"; workflowId: string; ok: boolean }
+  // Browserbase only: carries a cloud session's live-view URL so the UI can embed it as an iframe.
+  // Never emitted when ENGINE=local (the OS windows are visible directly).
+  | { kind: "liveview"; lane: "healing" | "control" | "record"; url: string };

@@ -82,6 +82,7 @@ function setLaneState(lane, state) {
 function handle(ev) {
   log(`[${ev.lane ?? "-"}] ${ev.kind} ${ev.result ? JSON.stringify(ev.result).slice(0, 120) : ""}`);
   if (ev.kind === "run_start") {
+    const rf = $("record-frame"); if (rf) { rf.innerHTML = ""; rf.style.display = "none"; } // teach frame done
     const { steps, status } = laneEls(ev.lane);
     steps.innerHTML = "";
     status.textContent = `running — row ${JSON.stringify(ev.row)}`;
@@ -108,8 +109,40 @@ function handle(ev) {
     steps.appendChild(healCard(ev.result, old));
   } else if (ev.kind === "run_done") {
     setLaneState(ev.lane, ev.ok ? "completed" : "crashed");
+  } else if (ev.kind === "liveview") {
+    renderLiveView(ev.lane, ev.url);
   }
 }
+
+function makeFrame(url, interactive) {
+  const f = document.createElement("iframe");
+  f.className = "liveview";
+  f.src = url;
+  f.setAttribute("sandbox", "allow-same-origin allow-scripts");
+  f.setAttribute("allow", "clipboard-read; clipboard-write");
+  if (!interactive) f.style.pointerEvents = "none"; // replay lanes read-only; record is read/write
+  return f;
+}
+
+// ENGINE=browserbase only: embed each cloud session's live view. control→left lane, healing→right
+// lane (read-only); record→centered frame (read/write, so the user can teach inside it).
+function renderLiveView(lane, url) {
+  if (lane === "record") {
+    const host = $("record-frame");
+    host.innerHTML = '<div class="label">● Recording — demonstrate the task in the live browser below, then “Stop &amp; build”.</div>';
+    host.appendChild(makeFrame(url, true));
+    host.style.display = "block";
+    return;
+  }
+  const laneEl = document.querySelector(`.lane.${lane === "control" ? "control" : "healing"}`);
+  laneEl.querySelector(".liveview")?.remove(); // replace any prior run's frame
+  laneEl.querySelector("h2").insertAdjacentElement("afterend", makeFrame(url, false));
+}
+
+// Browserbase posts this when a session ends — note it; it is NOT a heal failure.
+window.addEventListener("message", (e) => {
+  if (e.data === "browserbase-disconnected") log("[liveview] a Browserbase session ended");
+});
 
 async function api(path, body) {
   const res = await fetch(path, {

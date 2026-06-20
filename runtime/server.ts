@@ -38,8 +38,13 @@ function broadcast(event: RunEvent): void {
 // ---- Record ----
 app.post("/api/record/start", async (req, res) => {
   try {
-    await recorder.start(req.body.url ?? "http://localhost:3000/mock");
-    res.json({ recording: true });
+    // ENGINE=browserbase: record against the PUBLIC mock (cloud browsers can't reach localhost).
+    const url = process.env.MOCK_URL ?? req.body.url ?? "http://localhost:3000/mock";
+    const { liveViewUrl } = await recorder.start(url);
+    // Browserbase: push the record live-view to the UI so the user can teach inside the iframe.
+    // Local: liveViewUrl is undefined → no event → the OS record window is used as before.
+    if (liveViewUrl) broadcast({ kind: "liveview", lane: "record", url: liveViewUrl });
+    res.json({ recording: true, liveViewUrl });
   } catch (e) {
     res.status(500).json({ error: (e as Error).message });
   }
@@ -99,9 +104,15 @@ app.post("/api/replay", async (req, res) => {
   const healing = structuredClone(pristine); // re-grounds live every run; write-back logs to history
   healing.version = history.length; // onHeal bumps this → monotonic v2, v3, … in the memory trail
 
+  // ENGINE=browserbase: cloud browsers can't reach the operator's localhost mock, so replay against
+  // the public MOCK_URL. Unset (local mode) → keep the workflow's stored startUrl untouched.
+  const base = process.env.MOCK_URL ?? pristine.startUrl;
+  control.startUrl = base;
+  healing.startUrl = base;
+
   // Demo harness: ?break=1 makes the mock page rename Submit→Send so #submit-btn misses.
   if (breakSite) {
-    const sep = pristine.startUrl.includes("?") ? "&" : "?";
+    const sep = base.includes("?") ? "&" : "?";
     control.startUrl += `${sep}break=1`;
     healing.startUrl += `${sep}break=1`;
   }
