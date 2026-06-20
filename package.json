@@ -5,8 +5,8 @@
   "type": "module",
   "description": "Show, Don't Code — teach-by-demonstration web automation with a self-healing core.",
   "scripts": {
-    "dev": "tsx watch runtime/server.ts",
-    "start": "tsx runtime/server.ts",
+    "dev": "tsx watch --env-file=.env runtime/server.ts",
+    "start": "tsx --env-file=.env runtime/server.ts",
     "typecheck": "tsc --noEmit",
     "browsers": "playwright install chromium"
   },
