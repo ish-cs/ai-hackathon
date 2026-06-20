@@ -40,6 +40,12 @@ const submit = wf.steps.find((s) => s.action === "submit");
 check("submit step is fixed (valueFrom null)", !!submit && submit.valueFrom === null);
 check("every step has a non-empty intent", wf.steps.every((s) => s.intent.trim().length > 0));
 check("no intent leaks a selector/id (#)", wf.steps.every((s) => !s.intent.includes("#")));
+const traceSelectors = trace.actions.map((a) => a.target.selector);
+check(
+  "selectors preserved verbatim from trace (so the demo break can actually break them)",
+  wf.steps.every((s, i) => s.selector === traceSelectors[i]),
+  `got [${wf.steps.map((s) => s.selector).join(", ")}]`,
+);
 
 console.log("\n── Phase 2: heal() — renamed submit button #submit-btn→#send-btn, Submit→Send (REAL Claude call) ──");
 const brokenForm = `<form id="target">

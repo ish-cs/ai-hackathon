@@ -61,7 +61,7 @@ For each action decide:
    - FIXED: the same every run (clicking submit, navigating, a constant select option). Set valueFrom null and valueLiteral to the literal value, or null for a pure click/submit.
    Use ONE consistent parameter name across all steps that share a value.
 
-3. selector — the most STABLE selector for the element from what the trace shows, preferring a durable attribute (name, type, role) over a volatile auto-generated id. This is the happy-path selector; the healer fixes it only if it breaks.
+3. selector — copy the selector from the action's target VERBATIM. Do NOT substitute a "better" or more stable selector of your own; faithfully preserve exactly what was used at record time. The healer is the ONLY thing that changes a selector, and only when it actually breaks. (Pre-hardening selectors here would hide the self-healing that is the whole point of the product.)
 
 4. fallbackHints — the healer's lifeline when the selector breaks. Copy role/label/text from the action's target, and infer nearText (a nearby visible label or heading) from the surrounding DOM. Favor the most distinguishing, rename-resistant cues.
 
