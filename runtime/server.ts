@@ -112,6 +112,7 @@ app.post("/api/replay", async (req, res) => {
       emit: broadcast,
       onHeal: async (wf) => {
         wf.version += 1;
+        wf.startUrl = pristine.startUrl; // never persist the ?break=1 demo-harness mutation
         await saveWorkflow(wf);
       },
     }),

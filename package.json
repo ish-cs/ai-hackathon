@@ -8,7 +8,8 @@
     "dev": "tsx watch --env-file=.env runtime/server.ts",
     "start": "tsx --env-file=.env runtime/server.ts",
     "typecheck": "tsc --noEmit",
-    "browsers": "playwright install chromium"
+    "browsers": "playwright install chromium",
+    "memory": "tsx --env-file=.env tools/memory-inspect.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.105.0",
