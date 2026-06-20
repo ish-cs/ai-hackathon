@@ -2,7 +2,7 @@
 
 Teach-by-demonstration web automation with a self-healing core. Do a tedious web task once; it learns the workflow, replays it on new data, and **repairs itself when the site changes** instead of breaking.
 
-> Product name `Mimic` is a placeholder — swap freely. Strategy: [PROJECT.md](./PROJECT.md). Data contract: [CONTRACT.md](./CONTRACT.md).
+> Product name `Mimic` is a placeholder — swap freely. Strategy: [DOCS/PROJECT.md](./DOCS/PROJECT.md). Data contract: [DOCS/CONTRACT.md](./DOCS/CONTRACT.md). Full docs in [DOCS/](./DOCS).
 
 ## Locked design decisions (hour-1 calls, already made)
 

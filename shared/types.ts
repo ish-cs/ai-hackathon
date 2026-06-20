@@ -1,6 +1,6 @@
 // The seam. Brain ↔ Runtime ↔ Web all speak these and nothing else.
 // This file IS the contract — change it here, together, before changing any consumer.
-// Prose spec + rationale: ../CONTRACT.md
+// Prose spec + rationale: ../DOCS/CONTRACT.md
 
 export type ActionType = "click" | "input" | "navigate" | "select" | "submit";
 
