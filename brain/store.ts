@@ -18,7 +18,11 @@ const traceKey = (id: string) => `trace:${id}`;
 export async function saveWorkflow(wf: Workflow): Promise<void> {
   await connect();
   await client.set(wfKey(wf.workflowId), JSON.stringify(wf));
-  // History list = the "agent memory" the healer reads back to inform future heals.
+  // A brand-new workflow (version 1) resets its history so position 0 is always THIS
+  // workflow's true original. Without this, a reused/colliding id would leave a stranger's
+  // v1 at the front, and replay (which reads the oldest entry as "pristine") would grab the
+  // wrong workflow. Heal write-backs (version > 1) append, building the agent-memory trail.
+  if (wf.version === 1) await client.del(historyKey(wf.workflowId));
   await client.rPush(historyKey(wf.workflowId), JSON.stringify({ version: wf.version, wf }));
 }
 

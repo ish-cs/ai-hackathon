@@ -80,8 +80,11 @@ export async function structure(trace: RawTrace): Promise<Workflow> {
     effort: "high",
   });
 
+  // Unique id per recording — NEVER derive it from trace.traceId, which can repeat
+  // (the recorder builds it from a non-unique counter, and fixtures hardcode one). A
+  // colliding id corrupts the history trail that replay reads as the pristine original.
   return {
-    workflowId: `wf_${trace.traceId.replace(/^trace_/, "")}`,
+    workflowId: `wf_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`,
     task: trace.task,
     version: 1,
     startUrl: trace.startUrl,
