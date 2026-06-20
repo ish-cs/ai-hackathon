@@ -118,24 +118,22 @@ The audience watches one agent die and the other heal itself **on the same failu
 
 ---
 
-## Three-Way Split — Brain / Hands / Face
+## Two-Person Split — Brain / Hands+Face
 
-The architecture (record → structure → replay → heal) cleanly trisects, and it maps to Band's "2+ agents collaborating" prize for free: record-agent / replay-agent / healer-agent = three people's three deliverables.
+Two builders, one clean seam: "the agent that thinks" vs "the agent that acts + what you see." We still ship **three logical agents** (record / replay / heal) — which is what satisfies Band's *"2+ agents collaborating."* Agent count is about software, not headcount.
 
 **Ishaan — the Brain (the hard part the prizes judge).** Pure logic, no browser, no UI. Claude intent-extraction at record time, the structure step (raw trace → parameterized workflow), and the healer (DOM → re-ground by intent → patch + write fix back). Owns the **Redis workflow schema**. This is the moat.
 
-**Builder 2 (ck / aaryan) — the Hands.** Browser runtime. Record mode (capture actions inside our controlled Playwright/Browserbase browser) + the replay-agent that executes steps and **detects** failure. Owns the engine, the mock pages (Tab A records → Tab B form), and the "secretly change the form" break-trigger. Feeds raw traces + DOM to the Brain; gets back steps to execute.
+**ck — the Hands + Face (everything that touches the browser or the screen).** *Hands:* record mode (capture actions inside our controlled Playwright/Browserbase browser) + the replay-agent that executes steps and **detects** failure; owns the engine, the mock pages (Tab A → Tab B form), and the "secretly change the form" break-trigger. *Face:* record/run buttons, workflow list, the **live heal visualization**, the split-screen (normal agent dies | ours heals), and Sentry wiring — make the heal **visible**; a heal that prints as raw JSON loses. It's the heavier lane by surface area — Brain finishes its crude core fast (build order #1) then helps here.
 
-**Builder 3 (ck / aaryan) — the Face.** Frontend + demo harness. Record/run buttons, workflow list, the **live heal visualization**, the split-screen (normal agent dies | ours heals), and the Sentry wiring. Whole job: make the heal **visible**. A heal that prints as raw JSON loses.
+### Two non-negotiables that make the split safe
 
-### Two non-negotiables that make a 3-way split safe
+One seam between two people, but integration-not-landing is still the #1 way 24h hackathons die. So:
 
-3 lanes = 3 seams instead of 1, and integration-not-landing is the #1 way 24h hackathons die. So:
+1. **One shared [CONTRACT.md](./CONTRACT.md)** defines every JSON shape across the seam (trace, workflow, step, heal report). Agreed in **hour one**. Neither person edits the other's code — you only change the contract together.
+2. **First ~4 hours, both converge on crude end-to-end** — ugly record → replay on ONE task, both sides touching. Prove the seam holds *before* fanning out to make the heal bulletproof.
 
-1. **One shared [CONTRACT.md](./CONTRACT.md)** defines every JSON shape between lanes (trace, workflow, step, heal report). Agreed in **hour one**. Nobody edits another lane's code — you only change the contract together.
-2. **First ~4 hours, all three converge on crude end-to-end** — ugly record → replay on ONE task, all lanes touching. Prove the seams hold *before* fanning out to make the heal bulletproof.
-
-**Hour-4 checkpoint (the fallback):** if end-to-end isn't alive by hour 4, collapse to **2+1** — merge Hands+Face onto one person, the 3rd helps the critical path. Don't let a leaking seam ride past hour 4.
+**Hour-4 checkpoint:** if end-to-end isn't alive by hour 4, stop adding scope — both pile onto the critical path (the 60-second kill shot) until it works. Don't let a leaking seam ride past hour 4.
 
 ---
 
