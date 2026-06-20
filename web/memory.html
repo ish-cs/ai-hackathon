@@ -97,6 +97,9 @@
 
     <script>
       const $ = (id) => document.getElementById(id);
+      // task/intent/reasoning/selectors are user- and model-generated → untrusted text, not markup.
+      // Escape every value before it enters innerHTML.
+      const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
       let currentId = null;
       let knownHealCount = 0;
 
@@ -112,7 +115,7 @@
         const picker = $("picker");
         if (!wfs.length) { picker.innerHTML = "<option>— no workflows yet —</option>"; return; }
         picker.innerHTML = wfs
-          .map((w) => `<option value="${w.workflowId}">${w.task} · ${w.workflowId} (v${w.version})</option>`)
+          .map((w) => `<option value="${esc(w.workflowId)}">${esc(w.task)} · ${esc(w.workflowId)} (v${esc(w.version)})</option>`)
           .join("");
         if (!currentId || !wfs.some((w) => w.workflowId === currentId)) currentId = wfs[0].workflowId;
         picker.value = currentId;
@@ -139,18 +142,18 @@
         $("st-heals").textContent = heals.length;
 
         $("params").innerHTML = wf.parameters.length
-          ? wf.parameters.map((p) => `<span class="chip"><b>{${p.name}}</b> e.g. ${p.example}</span>`).join("")
+          ? wf.parameters.map((p) => `<span class="chip"><b>{${esc(p.name)}}</b> e.g. ${esc(p.example)}</span>`).join("")
           : '<span class="chip">no variables — fixed task</span>';
         $("url").textContent = wf.startUrl;
-        $("keyline").innerHTML = `Redis keys → <b>workflow:${wf.workflowId}</b> · <b>workflow:${wf.workflowId}:history</b>`;
+        $("keyline").innerHTML = `Redis keys → <b>workflow:${esc(wf.workflowId)}</b> · <b>workflow:${esc(wf.workflowId)}:history</b>`;
 
         $("steps").innerHTML = wf.steps
           .map((s) => {
             const healed = (s.healHistory || []).some((h) => h.healed);
             return `<div class="step">
-              <div class="act">${s.action}${s.valueFrom ? ` · {${s.valueFrom}}` : ""}</div>
-              <div class="intent">${s.intent}</div>
-              <div class="sel"><span class="lbl">now targets</span><code>${s.selector}</code>
+              <div class="act">${esc(s.action)}${s.valueFrom ? ` · {${esc(s.valueFrom)}}` : ""}</div>
+              <div class="intent">${esc(s.intent)}</div>
+              <div class="sel"><span class="lbl">now targets</span><code>${esc(s.selector)}</code>
                 ${healed ? '<span class="healed-badge">↻ re-grounded</span>' : ""}</div>
             </div>`;
           })
@@ -166,13 +169,13 @@
               const flash = flashNew && i >= heals.length - newCount;
               const conf = Math.round((h.confidence ?? 0) * 100);
               const diff = h.healed
-                ? `<span class="old">${h.oldSelector}</span><span class="arrow">→</span><span class="new">${h.newSelector}</span>`
-                : `<span class="old">${h.oldSelector}</span><span class="arrow">→</span><span class="new" style="color:var(--fail)">refused to guess</span>`;
+                ? `<span class="old">${esc(h.oldSelector)}</span><span class="arrow">→</span><span class="new">${esc(h.newSelector)}</span>`
+                : `<span class="old">${esc(h.oldSelector)}</span><span class="arrow">→</span><span class="new" style="color:var(--fail)">refused to guess</span>`;
               return `<div class="tl ${flash ? "flash" : ""}">
-                <div class="when">${ago(h.timestamp)} · step ${h.stepId}</div>
-                <div class="head">${h.intent}</div>
+                <div class="when">${ago(h.timestamp)} · step ${esc(h.stepId)}</div>
+                <div class="head">${esc(h.intent)}</div>
                 <div class="diff">${diff}</div>
-                <div class="why">${h.reasoning || ""}</div>
+                <div class="why">${esc(h.reasoning || "")}</div>
                 <div class="conf">confidence <span class="track"><span class="fill" style="width:${conf}%"></span></span> ${conf}%</div>
               </div>`;
             })
