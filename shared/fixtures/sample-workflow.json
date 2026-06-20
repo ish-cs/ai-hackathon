@@ -1,0 +1,42 @@
+{
+  "workflowId": "wf_demo_001",
+  "task": "copy a customer from the source list into the target form",
+  "version": 1,
+  "startUrl": "http://localhost:3000/mock",
+  "parameters": [
+    { "name": "customerName", "example": "Acme Corp" },
+    { "name": "customerEmail", "example": "hello@acme.com" }
+  ],
+  "steps": [
+    {
+      "stepId": "s1",
+      "action": "input",
+      "intent": "type the customer's name into the Name field",
+      "selector": "#name",
+      "fallbackHints": { "role": "textbox", "label": "Customer Name", "text": null, "nearText": "Customer Name" },
+      "valueFrom": "customerName",
+      "valueLiteral": null,
+      "healHistory": []
+    },
+    {
+      "stepId": "s2",
+      "action": "input",
+      "intent": "type the customer's email into the Email field",
+      "selector": "#email",
+      "fallbackHints": { "role": "textbox", "label": "Email", "text": null, "nearText": "Email" },
+      "valueFrom": "customerEmail",
+      "valueLiteral": null,
+      "healHistory": []
+    },
+    {
+      "stepId": "s3",
+      "action": "submit",
+      "intent": "submit the form to save the customer",
+      "selector": "#submit-btn",
+      "fallbackHints": { "role": "button", "label": null, "text": "Submit", "nearText": null },
+      "valueFrom": null,
+      "valueLiteral": null,
+      "healHistory": []
+    }
+  ]
+}

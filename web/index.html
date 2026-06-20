@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mimic — Show, Don't Code</title>
+    <style>
+      :root { --bg:#0c0d10; --panel:#15171c; --line:#262a33; --ink:#e8eaed; --dim:#8b909c;
+              --ok:#39d98a; --fail:#ff5d5d; --heal:#5da9ff; --accent:#ffb454; }
+      * { box-sizing: border-box; }
+      body { margin:0; background:var(--bg); color:var(--ink); font:14px/1.5 ui-sans-serif,system-ui,sans-serif; }
+      header { padding:16px 24px; border-bottom:1px solid var(--line); display:flex; gap:16px; align-items:baseline; }
+      h1 { font-size:18px; margin:0; }
+      header .tag { color:var(--dim); font-size:13px; }
+      .bar { padding:12px 24px; border-bottom:1px solid var(--line); display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+      button { background:var(--panel); color:var(--ink); border:1px solid var(--line); border-radius:8px;
+               padding:8px 14px; cursor:pointer; font-size:13px; }
+      button:hover { border-color:var(--accent); }
+      button.primary { background:var(--accent); color:#000; border-color:var(--accent); font-weight:600; }
+      button.danger { border-color:var(--fail); color:var(--fail); }
+      input { background:var(--panel); color:var(--ink); border:1px solid var(--line); border-radius:8px; padding:8px 10px; }
+      .split { display:grid; grid-template-columns:1fr 1fr; gap:16px; padding:16px 24px; }
+      .lane { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:16px; min-height:240px; }
+      .lane h2 { font-size:14px; margin:0 0 12px; display:flex; justify-content:space-between; }
+      .lane.control h2 span.t { color:var(--fail); }
+      .lane.healing h2 span.t { color:var(--ok); }
+      .step { padding:8px 10px; border-radius:8px; margin-bottom:6px; border:1px solid var(--line);
+              display:flex; justify-content:space-between; gap:8px; font-family:ui-monospace,monospace; font-size:12px; }
+      .step.ok { border-color:var(--ok); }
+      .step.failed { border-color:var(--fail); background:rgba(255,93,93,.08); }
+      .step.healed { border-color:var(--heal); background:rgba(93,169,255,.08); }
+      .step .s { color:var(--dim); }
+      .heal-note { font-size:12px; color:var(--heal); padding:4px 10px; margin-bottom:6px; }
+      .status { font-size:12px; color:var(--dim); }
+      #log { padding:12px 24px; border-top:1px solid var(--line); font-family:ui-monospace,monospace;
+             font-size:11px; color:var(--dim); max-height:160px; overflow:auto; white-space:pre-wrap; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Mimic</h1>
+      <span class="tag">Show it once. It works forever — and heals when the site changes.</span>
+    </header>
+
+    <div class="bar">
+      <input id="task" placeholder="task name" value="copy customer into form" size="28" />
+      <button id="rec-start">● Record</button>
+      <button id="rec-stop">■ Stop &amp; build workflow</button>
+      <span style="width:16px"></span>
+      <input id="wf" placeholder="workflowId" size="16" />
+      <input id="name" placeholder="customerName" value="Beta LLC" />
+      <input id="email" placeholder="customerEmail" value="hi@beta.com" />
+      <button id="run" class="primary">▶ Run (split-screen)</button>
+      <button id="run-break" class="danger">🔧 Run with broken site</button>
+    </div>
+
+    <div class="split">
+      <div class="lane control">
+        <h2>Normal agent <span class="t">— no healing</span></h2>
+        <div class="status" id="control-status">idle</div>
+        <div id="control-steps"></div>
+      </div>
+      <div class="lane healing">
+        <h2>Mimic <span class="t">— self-healing</span></h2>
+        <div class="status" id="healing-status">idle</div>
+        <div id="healing-steps"></div>
+      </div>
+    </div>
+
+    <div id="log"></div>
+    <script src="/app.js"></script>
+  </body>
+</html>

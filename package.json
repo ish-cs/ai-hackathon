@@ -1,0 +1,28 @@
+{
+  "name": "mimic",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Show, Don't Code — teach-by-demonstration web automation with a self-healing core.",
+  "scripts": {
+    "dev": "tsx watch runtime/server.ts",
+    "start": "tsx runtime/server.ts",
+    "typecheck": "tsc --noEmit",
+    "browsers": "playwright install chromium"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.105.0",
+    "@sentry/node": "^10.59.0",
+    "express": "^5.2.1",
+    "playwright": "^1.61.0",
+    "redis": "^6.0.0",
+    "ws": "^8.21.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^26.0.0",
+    "@types/ws": "^8.18.1",
+    "tsx": "^4.22.4",
+    "typescript": "^6.0.3"
+  }
+}

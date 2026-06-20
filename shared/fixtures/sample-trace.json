@@ -1,0 +1,46 @@
+{
+  "traceId": "trace_demo_001",
+  "task": "copy a customer from the source list into the target form",
+  "startUrl": "http://localhost:3000/mock",
+  "actions": [
+    {
+      "type": "input",
+      "timestamp": 1750000000000,
+      "value": "Acme Corp",
+      "target": {
+        "selector": "#name",
+        "role": "textbox",
+        "label": "Customer Name",
+        "text": null,
+        "attributes": { "id": "name", "name": "name", "type": "text" },
+        "domSnapshot": "<form id=\"target\"><label for=\"name\">Customer Name</label><input id=\"name\" name=\"name\" type=\"text\"></form>"
+      }
+    },
+    {
+      "type": "input",
+      "timestamp": 1750000002000,
+      "value": "hello@acme.com",
+      "target": {
+        "selector": "#email",
+        "role": "textbox",
+        "label": "Email",
+        "text": null,
+        "attributes": { "id": "email", "name": "email", "type": "email" },
+        "domSnapshot": "<form id=\"target\"><label for=\"email\">Email</label><input id=\"email\" name=\"email\" type=\"email\"></form>"
+      }
+    },
+    {
+      "type": "submit",
+      "timestamp": 1750000004000,
+      "value": null,
+      "target": {
+        "selector": "#submit-btn",
+        "role": "button",
+        "label": null,
+        "text": "Submit",
+        "attributes": { "id": "submit-btn", "type": "submit" },
+        "domSnapshot": "<form id=\"target\"><button id=\"submit-btn\" type=\"submit\">Submit</button></form>"
+      }
+    }
+  ]
+}
