@@ -270,7 +270,11 @@ app.post("/api/race/step", async (_req, res) => {
   r.busy = true;
   const n = r.run + 1;
   const lead = r.queue[r.run];
-  const brokeThisRound = n === r.breakAt;
+  // The site stays redesigned from the break round onward (it doesn't un-redesign). So every round at or
+  // past breakAt is "broken": Stagehand re-reasons at full cost AGAIN (it never learns), while Mimic — which
+  // persisted its heal on the first break round — replays the learned selector for ~0 tokens. That contrast
+  // (expensive forever vs. learned once) is the round-4 payoff.
+  const brokeThisRound = n >= r.breakAt;
 
   // Per-lane stopwatch: broadcast start/stop around each lane's round so the UI ticks live then freezes ✓.
   const timed = async <T>(lane: "stagehand" | "mimic", fn: () => Promise<T>): Promise<T> => {

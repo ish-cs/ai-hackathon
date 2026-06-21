@@ -139,20 +139,18 @@ export class StagehandLane {
       await page.goto(this.cfg.startUrl); // fresh start each round → the agent re-reasons from scratch
       await reattach(); // attach this lead's feed (the previous lead's tab may have closed)
 
-      // Break round: rename the Send button so the agent can't rely on its prior phrasing. #li-send is NOT
-      // in the DOM at load (it appears only after the compose dock opens), so a one-shot rename would miss —
-      // a MutationObserver renames it the instant it appears, and re-applies if the dock re-renders. Keeping
-      // the same element (id+text only) preserves its click handler; the agent just pays to re-find "Send now".
+      // Break round: rename the Send button so the agent can't rely on its prior phrasing. The button
+      // (#li-send) is a STATIC element in the page (present at load — the compose dock is merely hidden,
+      // not absent), so a single synchronous rename sticks; the dock never re-renders it. We keep the same
+      // element (id+text only) so its click handler survives — the agent just pays to re-find "Send now".
+      // (An earlier MutationObserver version threw StagehandEvalError: Uncaught inside Stagehand's wrapped
+      // page.evaluate and killed the round at 0 tokens — the observer was both unnecessary and fatal.)
       if (opts.breakNow && this.cfg.breakSpec) {
         await page.evaluate(({ selector, newId, newText }) => {
-          const rename = (): void => {
-            const el = document.querySelector(selector) as HTMLElement | null;
-            if (!el) return;
-            if (newId) el.id = newId;
-            if (newText) el.textContent = newText;
-          };
-          rename();
-          new MutationObserver(rename).observe(document.documentElement, { childList: true, subtree: true });
+          const el = document.querySelector(selector) as HTMLElement | null;
+          if (!el) return;
+          if (newId) el.id = newId;
+          if (newText) el.textContent = newText;
         }, this.cfg.breakSpec);
       }
       const agent = this.sh.agent({ model: MODEL, mode: "dom" });

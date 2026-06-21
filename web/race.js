@@ -15,7 +15,17 @@ const S = {
 // Per-lane stopwatch: setInterval handle while a lane runs.
 const timers = { stagehand: null, mimic: null };
 // Manual-stepping session state, set by /api/race/start, advanced by /api/race/step.
-let raceRounds = 0, raceBreakAt = 0;
+let raceRounds = 0, raceBreakAt = 0, pendingRound = 0;
+
+// Per-lane status badge: red "broken" on Stagehand (re-reasoning at full cost), green "learned" on Mimic.
+function setStatus(lane, cls, text) {
+  const el = $(`status-${lane}`);
+  el.textContent = text;
+  el.className = `status show ${cls}`;
+}
+function clearStatus() {
+  for (const l of LANES) { const el = $(`status-${l}`); el.className = "status"; el.textContent = ""; }
+}
 
 function reset() {
   for (const l of LANES) {
@@ -27,6 +37,7 @@ function reset() {
     t.textContent = "⏱ 0.0s";
     t.classList.remove("run", "done");
   }
+  clearStatus();
   setProgress(0, raceRounds);
   drawAll();
 }
@@ -135,12 +146,15 @@ ws.onmessage = (e) => {
   if (ev.kind === "metrics" && S[ev.lane]) onMetrics(ev);
   else if (ev.kind === "liveview" && S[ev.lane]) onLive(ev);
   else if (ev.kind === "timer" && S[ev.lane]) onTimer(ev);
+  else if (ev.kind === "heal" && ev.lane === "mimic" && ev.result?.healed)
+    setStatus("mimic", "learned", "✓ Healed — learned the new “Send now” button");
 };
 
 // Label the step button for the round about to run; flag the break round so the presenter sees it coming.
 function labelStep(nextRound) {
+  pendingRound = nextRound;
   const step = $("step");
-  const isBreak = nextRound === raceBreakAt;
+  const isBreak = raceBreakAt && nextRound >= raceBreakAt; // site stays redesigned from breakAt onward
   step.textContent = isBreak ? `Run round ${nextRound} ⚠ break` : `Run round ${nextRound}`;
   step.classList.toggle("break", isBreak);
 }
@@ -172,6 +186,18 @@ $("start").onclick = async () => {
 $("step").onclick = async () => {
   const step = $("step");
   step.disabled = true;
+  // As soon as a broken round starts, flag the contrast: Stagehand re-reasons at full cost (it never learns);
+  // Mimic heals once on the first break round, then replays the learned selector for free on every later one.
+  const running = pendingRound;
+  if (raceBreakAt && running >= raceBreakAt) {
+    const first = running === raceBreakAt;
+    setStatus("stagehand", "broken", first
+      ? "⚠ Site redesigned (Send → “Send now”) — re-reasoning from scratch, full cost"
+      : "⚠ Still redesigned — re-reasoning AGAIN, full cost (never learns)");
+    setStatus("mimic", "learned", first
+      ? "✦ Re-grounding by intent — learning the new button…"
+      : "✓ Replaying the learned selector — $0, no LLM");
+  }
   try {
     const r = await fetch("/api/race/step", { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
     const j = await r.json();

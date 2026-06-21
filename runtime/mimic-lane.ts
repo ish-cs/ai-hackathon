@@ -171,6 +171,13 @@ export class MimicLane {
           emit({ kind: "step", lane: "mimic", result: stepResult(wf, step.stepId, "failed", step.selector, Date.now() - t0, error) });
           const recovered = await tryHeal(page, wf, step, value, emit);
           if (!recovered) { ok = false; break; }
+          // Mimic LEARNS: persist the re-grounded selector onto the SOURCE workflow so every later round
+          // replays it for ~0 tokens (no re-heal). The healed selector is intent-based (e.g. a class match),
+          // so it survives the demo rename — the next broken round costs nothing. This is the whole point vs.
+          // Stagehand, which re-reasons from scratch every round. tryHeal set step.selector on the clone; copy
+          // it back to the matching source step by stepId.
+          const src = this.cfg.workflow.steps.find((s) => s.stepId === step.stepId);
+          if (src) src.selector = step.selector;
           emit({ kind: "step", lane: "mimic", result: stepResult(wf, step.stepId, "healed", step.selector, Date.now() - t0) });
         }
       }
