@@ -12,12 +12,21 @@ const S = {
   mimic: { cum: 0, cumCost: 0, points: [{ cum: 0 }] },
 };
 
+// Per-lane stopwatch: setInterval handle while a lane runs; lanesDone re-enables Start once both stop.
+const timers = { stagehand: null, mimic: null };
+let lanesDone = 0;
+
 function reset() {
   for (const l of LANES) {
     S[l] = { cum: 0, cumCost: 0, points: [{ cum: 0 }] };
     $(`cur-${l}`).textContent = "0";
     $(`cum-${l}`).textContent = "Σ 0 tok · $0.0000";
+    clearInterval(timers[l]);
+    const t = $(`timer-${l}`);
+    t.textContent = "⏱ 0.0s";
+    t.classList.remove("run", "done");
   }
+  lanesDone = 0;
   drawAll();
 }
 
@@ -53,6 +62,28 @@ function onLive(ev) {
   f.setAttribute("allow", "clipboard-read; clipboard-write");
   f.style.pointerEvents = "none"; // read-only — the agents drive, the audience watches
   win.appendChild(f);
+}
+
+// Live per-lane stopwatch. "start" → tick up every 100ms; "stop" → freeze at the lane's real elapsed
+// time and color it the lane's hue. Lanes are decoupled server-side, so Mimic freezes long before Stagehand.
+function onTimer(ev) {
+  const el = $(`timer-${ev.lane}`);
+  if (!el) return;
+  if (ev.state === "start") {
+    clearInterval(timers[ev.lane]);
+    el.classList.add("run");
+    el.classList.remove("done");
+    const t0 = performance.now();
+    timers[ev.lane] = setInterval(() => {
+      el.textContent = `⏱ ${((performance.now() - t0) / 1000).toFixed(1)}s`;
+    }, 100);
+  } else {
+    clearInterval(timers[ev.lane]);
+    el.textContent = `⏱ ${((ev.elapsedMs ?? 0) / 1000).toFixed(1)}s ✓`;
+    el.classList.remove("run");
+    el.classList.add("done");
+    if (++lanesDone >= LANES.length) $("start").disabled = false; // both finished → allow another race
+  }
 }
 
 // Draw both lanes' cumulative curves into one canvas; `selfLane` is bold, the other is faded.
@@ -96,6 +127,7 @@ ws.onmessage = (e) => {
   const ev = JSON.parse(e.data);
   if (ev.kind === "metrics" && S[ev.lane]) onMetrics(ev);
   else if (ev.kind === "liveview" && S[ev.lane]) onLive(ev);
+  else if (ev.kind === "timer" && S[ev.lane]) onTimer(ev);
 };
 
 $("start").onclick = async () => {
@@ -103,9 +135,10 @@ $("start").onclick = async () => {
   const btn = $("start");
   btn.disabled = true;
   try {
-    const r = await fetch("/api/race", { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
-    const { rounds } = await r.json();
-    setTimeout(() => (btn.disabled = false), (rounds || 4) * 1800 + 2500); // re-enable after the scripted race
+    await fetch("/api/race", { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
+    // Re-enabled when BOTH lanes emit timer "stop" (see onTimer). Safety net if a lane errors mid-race
+    // and never stops: force re-enable after a generous ceiling so Start can't get stuck disabled.
+    setTimeout(() => (btn.disabled = false), 300_000);
   } catch {
     btn.disabled = false;
   }
