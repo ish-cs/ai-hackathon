@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>LinkedUp — Messaging</title>
+    <title>LinkedUp — Search</title>
     <style>
       :root { --blue:#0a66c2; --blue2:#378fe9; --bg:#f4f2ee; --card:#fff; --line:#e0dfdc;
               --ink:#1d1d1f; --dim:#5e5e5e; --green:#057642; }
@@ -40,49 +40,38 @@
       .card { background:var(--card); border:1px solid var(--line); border-radius:10px; overflow:hidden; }
       .pad { padding:18px; }
 
-      /* ---- search result ---- */
-      .result-hd { font-size:13px; color:var(--dim); padding:12px 18px 4px; }
-      .result { display:flex; align-items:center; gap:14px; cursor:pointer; padding:14px 18px; }
-      .result:hover { background:#f3f9ff; }
+      /* ---- search results list ---- */
+      .result-hd { font-size:13px; color:var(--dim); padding:12px 18px; border-bottom:1px solid var(--line); }
+      .result { display:flex; align-items:flex-start; gap:14px; padding:16px 18px; }
+      .result + .result { border-top:1px solid var(--line); }
+      .result:hover { background:#f8fbff; }
       .avatar { border-radius:50%; background:linear-gradient(135deg,var(--blue),#70b5f9); flex:none;
                 position:relative; }
-      .av-sm { width:52px; height:52px; }
-      .result .who { font-weight:600; color:var(--blue); }
-      .result .sub { color:var(--dim); font-size:13px; }
-      .result .meta { color:#8a8a8a; font-size:12px; margin-top:2px; }
+      .av-sm { width:56px; height:56px; }
+      .result .body { flex:1; min-width:0; }
+      .result .who { font-weight:600; color:var(--blue); font-size:16px; }
+      .result .who:hover { text-decoration:underline; cursor:pointer; }
+      .result .sub { color:var(--ink); font-size:14px; margin-top:1px; }
+      .result .meta { color:var(--dim); font-size:13px; margin-top:2px; }
       .badge-pill { display:inline-block; font-size:11px; color:var(--dim); border:1px solid var(--line);
                     border-radius:20px; padding:1px 8px; margin-left:6px; vertical-align:middle; }
+      .row-actions { display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; }
 
-      /* ---- profile ---- */
-      .cover { height:130px; background:linear-gradient(120deg,#0a66c2,#378fe9 55%,#70b5f9); }
-      .profile-body { padding:0 22px 20px; margin-top:-44px; }
-      .profile-head { display:flex; align-items:flex-end; justify-content:space-between; gap:16px; }
-      .av-lg { width:120px; height:120px; border:4px solid #fff; }
-      .pname { font-size:24px; font-weight:700; margin-top:10px; }
-      .phead { color:var(--ink); margin-top:2px; }
-      .ploc { color:var(--dim); font-size:13px; margin-top:4px; }
-      .pconn { color:var(--blue); font-size:13px; font-weight:600; margin-top:6px; }
-      .actions { display:flex; gap:8px; margin-top:14px; flex-wrap:wrap; }
-      .btn { border:none; border-radius:20px; padding:8px 18px; font-size:15px; font-weight:600; cursor:pointer;
+      .btn { border:none; border-radius:20px; padding:6px 16px; font-size:14px; font-weight:600; cursor:pointer;
              display:inline-flex; align-items:center; gap:6px; }
       .btn-primary { background:var(--blue); color:#fff; }
       .btn-primary:hover { background:#004182; }
       .btn-ghost { background:#fff; color:var(--blue); border:1.5px solid var(--blue); }
       .btn-ghost:hover { background:#eaf3fb; }
       .btn-quiet { background:#fff; color:var(--dim); border:1.5px solid #b0b0b0; }
-      .sec-title { font-size:18px; font-weight:700; margin:0 0 10px; }
-      .xp { display:flex; gap:12px; padding:10px 0; }
-      .xp + .xp { border-top:1px solid var(--line); }
-      .xp .logo { width:44px; height:44px; border-radius:8px; background:#eef3f8; display:grid; place-items:center;
-                  font-weight:800; color:var(--blue); flex:none; }
-      .xp .role { font-weight:600; } .xp .org { font-size:13px; } .xp .when { color:var(--dim); font-size:12px; }
-      .hidden { display:none; }
+      .btn-quiet:hover { background:#f3f3f3; }
 
       /* ---- right rail ---- */
       .rail .card .pad { font-size:13px; color:var(--dim); }
       .rail .ad { font-size:11px; color:#8a8a8a; margin-bottom:8px; }
+      .rail .pv + .pv { margin-top:8px; }
 
-      /* ---- messaging overlay (bottom-right, like LinkedIn) ---- */
+      /* ---- messaging dock (bottom-right, like LinkedIn) ---- */
       #li-compose-box { position:fixed; right:20px; bottom:0; width:340px; z-index:30;
                         border-radius:10px 10px 0 0; box-shadow:0 0 0 1px var(--line),0 12px 28px rgba(0,0,0,.22); }
       .msg-hd { display:flex; align-items:center; gap:10px; padding:10px 14px; border-bottom:1px solid var(--line); }
@@ -97,6 +86,7 @@
       .flag { position:fixed; bottom:8px; left:16px; font-size:12px; color:#b7b3aa; z-index:40; }
       .dot { width:9px; height:9px; border-radius:50%; background:var(--green); position:absolute; right:1px; bottom:3px;
              border:2px solid #fff; }
+      .hidden { display:none; }
     </style>
   </head>
   <body>
@@ -106,7 +96,7 @@
         <div class="brand"><span class="word">Linked</span><span class="badge">up</span></div>
         <div class="search-wrap">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
-          <input id="li-search" type="text" placeholder="Search by name" />
+          <input id="li-search" type="text" placeholder="Search by name, role, company" value="engineering leaders" />
         </div>
         <div class="spacer"></div>
         <div class="navlinks">
@@ -121,57 +111,11 @@
     </div>
 
     <div class="wrap">
+      <!-- ───────── outreach targets: People search results (rendered from leads.js) ───────── -->
       <div class="col">
-        <!-- Search result (click to open the profile) -->
         <div class="card">
-          <div class="result-hd">People · 1 result</div>
-          <div class="result" id="li-result" role="button" tabindex="0">
-            <div class="avatar av-sm"><span class="dot"></span></div>
-            <div>
-              <div class="who" id="li-result-name">Search result</div>
-              <div class="sub" id="li-result-sub">Open profile to message</div>
-              <div class="meta">San Francisco Bay Area<span class="badge-pill">3rd</span><span class="badge-pill">12 mutual</span></div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Profile (revealed after clicking the result) -->
-        <div class="card hidden" id="li-profile">
-          <div class="cover"></div>
-          <div class="profile-body">
-            <div class="profile-head">
-              <div class="avatar av-lg"><span class="dot" style="width:14px;height:14px;right:6px;bottom:8px"></span></div>
-            </div>
-            <div class="pname" id="li-pname">—</div>
-            <div class="phead" id="li-phead">—</div>
-            <div class="ploc">San Francisco Bay Area · <span style="color:var(--blue)">Contact info</span></div>
-            <div class="pconn">500+ connections</div>
-            <div class="actions">
-              <button class="btn btn-ghost" id="li-message-btn">✉ Message</button>
-              <button class="btn btn-quiet" id="li-connect-btn" type="button">+ Connect</button>
-              <button class="btn btn-quiet" type="button">More</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- About + Experience: pure decoration, no recorded steps touch these -->
-        <div class="card hidden" id="li-about">
-          <div class="pad">
-            <h3 class="sec-title">About</h3>
-            <div style="color:var(--dim)">Building reliable systems and helping teams ship. Always open to
-              connecting with people working on hard problems.</div>
-          </div>
-        </div>
-        <div class="card hidden" id="li-xp">
-          <div class="pad">
-            <h3 class="sec-title">Experience</h3>
-            <div class="xp"><div class="logo">A</div><div>
-              <div class="role" id="li-xp-role">—</div><div class="org">Acme · Full-time</div>
-              <div class="when">2021 — Present · 4 yrs</div></div></div>
-            <div class="xp"><div class="logo">G</div><div>
-              <div class="role">Senior Engineer</div><div class="org">Globex</div>
-              <div class="when">2018 — 2021 · 3 yrs</div></div></div>
-          </div>
+          <div class="result-hd">People · <span id="li-count">0</span> results</div>
+          <div id="li-results"></div>
         </div>
       </div>
 
@@ -184,14 +128,14 @@
         </div></div>
         <div class="card"><div class="pad">
           <strong style="color:var(--ink)">People also viewed</strong>
-          <div style="margin-top:8px">· Priya Nair — Eng Lead</div>
-          <div>· Tom Reyes — Recruiter</div>
-          <div>· Dana Wu — PM</div>
+          <div class="pv" style="margin-top:8px">· Tom Reyes — Recruiter</div>
+          <div class="pv">· Dana Wu — Product Manager</div>
+          <div class="pv">· Owen Park — Eng Manager</div>
         </div></div>
       </div>
     </div>
 
-    <!-- Compose (revealed after clicking Message) — styled as LinkedIn's bottom-right messaging dock -->
+    <!-- Messaging dock (revealed after clicking a target's Message) — LinkedIn's bottom-right dock -->
     <div class="card hidden" id="li-compose-box">
       <div class="msg-hd">
         <div class="avatar av-sm" style="width:36px;height:36px"></div>
@@ -205,25 +149,62 @@
     </div>
 
     <div class="flag" id="flag"></div>
-    <script>
-      const q = () => document.getElementById("li-search").value.trim() || "this person";
-      const show = (id) => document.getElementById(id).classList.remove("hidden");
 
-      // Open profile from the search result; personalize from the search box.
-      document.getElementById("li-result").addEventListener("click", () => {
-        const name = q();
-        document.getElementById("li-result-name").textContent = name;
-        document.getElementById("li-result-sub").textContent = "VP Engineering at Acme";
-        document.getElementById("li-pname").textContent = name;
-        document.getElementById("li-phead").textContent = "VP Engineering at Acme · Open to connect";
-        document.getElementById("li-xp-role").textContent = "VP Engineering";
-        document.getElementById("li-compose-who").textContent = name;
-        show("li-profile"); show("li-about"); show("li-xp");
+    <script src="./leads.js"></script>
+    <script>
+      const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
+      const results = document.getElementById("li-results");
+
+      // Render the People list from the shared dataset. data-name personalizes the message dock.
+      function render(list) {
+        results.innerHTML = list.map((p) => `
+          <div class="result" data-target data-name="${esc(p.name)}">
+            <div class="avatar av-sm"><span class="dot"${p.online ? "" : ' style="background:#b0b0b0"'}></span></div>
+            <div class="body">
+              <div class="who">${esc(p.name)}<span class="badge-pill">${esc(p.conn)}</span><span class="badge-pill">${p.mutual} mutual</span></div>
+              <div class="sub">${esc(p.role)} at ${esc(p.company)}</div>
+              <div class="meta">${esc(p.loc)}</div>
+              <div class="row-actions">
+                <button class="btn btn-ghost li-message" type="button">✉ Message</button>
+                <button class="btn btn-quiet li-connect" type="button">+ Connect</button>
+              </div>
+            </div>
+          </div>`).join("");
+        document.getElementById("li-count").textContent = list.length;
+      }
+      render(window.LEADS);
+
+      // ── Open the messaging dock for whichever target's Message is clicked (event delegation) ──
+      let activeName = "";
+      results.addEventListener("click", (e) => {
+        const msg = e.target.closest(".li-message");
+        const con = e.target.closest(".li-connect");
+        if (msg) {
+          const target = msg.closest("[data-target]");
+          activeName = (target && target.dataset.name) || "this person";
+          document.getElementById("li-compose-who").textContent = activeName;
+          document.getElementById("li-sent").classList.add("hidden");
+          document.getElementById("li-compose").value = "";
+          document.getElementById("li-compose-box").classList.remove("hidden");
+          document.getElementById("li-compose").focus();
+        } else if (con) {
+          con.textContent = "✓ Pending"; con.disabled = true;
+        }
       });
 
-      document.getElementById("li-message-btn").addEventListener("click", () => show("li-compose-box"));
+      // Live search over the target list (name / role / company). Default value shows everyone.
+      const search = document.getElementById("li-search");
+      search.addEventListener("input", () => {
+        const term = search.value.trim().toLowerCase();
+        if (term === "" || term === "engineering leaders") return render(window.LEADS);
+        render(window.LEADS.filter((p) =>
+          p.name.toLowerCase().includes(term) ||
+          p.role.toLowerCase().includes(term) ||
+          p.company.toLowerCase().includes(term)));
+      });
 
-      // Capture the Send button by ELEMENT REFERENCE so the handler survives the ?break=1 rename.
+      // ── Kill shot: ?break=1 renames the Send button (id + text) so #li-send no longer matches.
+      // Captured by element reference, so this handler survives; only the recorded selector breaks.
       const sendBtn = document.getElementById("li-send");
       const broken = new URLSearchParams(location.search).get("break") === "1";
       if (broken) {
@@ -233,7 +214,7 @@
       }
       sendBtn.addEventListener("click", () => {
         const sent = document.getElementById("li-sent");
-        sent.textContent = "✓ Message sent to " + q();
+        sent.textContent = "✓ Message sent to " + (activeName || "this person");
         sent.classList.remove("hidden");
       });
     </script>

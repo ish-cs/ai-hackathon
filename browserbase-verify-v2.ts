@@ -24,7 +24,7 @@ async function check(path: string, sels: string[]): Promise<boolean> {
 }
 
 const a = await check("/leadsheet.html", ['[data-cell="name"]', ".li-open"]);
-const b = await check("/linkedin.html", ["#li-search", "#li-result", "#li-send"]);
+const b = await check("/linkedin.html", ["#li-search", ".li-message", "#li-send"]);
 console.log(a && b ? "\nV2 PAGES ✅  both load from the cloud with selectors intact." : "\nV2 PAGES ❌  not reachable/incomplete on this base.");
 await browser.close().catch(() => {});
 process.exit(a && b ? 0 : 1);

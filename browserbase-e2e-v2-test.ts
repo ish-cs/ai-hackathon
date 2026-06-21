@@ -26,8 +26,7 @@ async function record(): Promise<Workflow> {
     await sleep(100);
   }
   await li.fill("#li-search", "Sarah Chen");
-  await li.click("#li-result");
-  await li.click("#li-message-btn");
+  await li.click('[data-name="Sarah Chen"] .li-message');
   await li.fill("#li-compose", "Hi Sarah Chen, saw you're VP Engineering at Acme — would love to connect.");
   await li.click("#li-send");
   await sleep(500);

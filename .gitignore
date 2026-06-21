@@ -8,3 +8,5 @@ playwright-report/
 test-results/
 .playwright-mcp/
 dump.rdb
+# Local debug screenshots from burner-login / context warming (junk, never commit)
+/*.png

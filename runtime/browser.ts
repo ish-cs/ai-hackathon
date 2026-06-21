@@ -4,12 +4,13 @@
 // Spec: ../DOCS/BROWSERBASE.md.
 import { chromium, type Browser, type Page } from "playwright";
 import Browserbase from "@browserbasehq/sdk";
+import type { Lane } from "../shared/types";
 
 export type Engine = "local" | "browserbase";
 export const ENGINE: Engine = (process.env.ENGINE as Engine) ?? "local";
 
 export interface OpenOpts {
-  lane: "control" | "healing" | "record";
+  lane: Lane;
   /** Recorder needs a read/write live view; replay lanes are read-only. UI-side concern only. */
   interactive?: boolean;
   /** Browserbase only: reuse a warmed Context (e.g. a logged-in burner LinkedIn), read-only (persist:false).
@@ -52,7 +53,7 @@ async function openLocal(opts: OpenOpts): Promise<OpenedBrowser> {
   }
   // Replay lane: a positioned window so control + healing sit side by side; viewport:null → the page
   // fills the OS window.
-  const x = LANE_X[opts.lane];
+  const x = opts.lane === "healing" ? LANE_X.healing : LANE_X.control;
   const browser = await chromium.launch({
     headless: false,
     args: [`--window-position=${x},${LANE_WINDOW.y}`, `--window-size=${LANE_WINDOW.width},${LANE_WINDOW.height}`],
