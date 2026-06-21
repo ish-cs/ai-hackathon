@@ -1,102 +1,586 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Mimic — Show, Don't Code</title>
-    <style>
-      :root { --bg:#0c0d10; --panel:#15171c; --line:#262a33; --ink:#e8eaed; --dim:#8b909c;
-              --ok:#39d98a; --fail:#ff5d5d; --heal:#5da9ff; --accent:#ffb454; }
-      * { box-sizing: border-box; }
-      body { margin:0; background:var(--bg); color:var(--ink); font:14px/1.5 ui-sans-serif,system-ui,sans-serif; }
-      header { padding:16px 24px; border-bottom:1px solid var(--line); display:flex; gap:16px; align-items:baseline; }
-      h1 { font-size:18px; margin:0; }
-      header .tag { color:var(--dim); font-size:13px; }
-      .bar { padding:12px 24px; border-bottom:1px solid var(--line); display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
-      button { background:var(--panel); color:var(--ink); border:1px solid var(--line); border-radius:8px;
-               padding:8px 14px; cursor:pointer; font-size:13px; }
-      button:hover { border-color:var(--accent); }
-      button.primary { background:var(--accent); color:#000; border-color:var(--accent); font-weight:600; }
-      button.danger { border-color:var(--fail); color:var(--fail); }
-      input { background:var(--panel); color:var(--ink); border:1px solid var(--line); border-radius:8px; padding:8px 10px; }
-      .split { display:grid; grid-template-columns:1fr 1fr; gap:16px; padding:16px 24px; }
-      .lane { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:16px; min-height:240px; }
-      .lane h2 { font-size:14px; margin:0 0 12px; display:flex; justify-content:space-between; }
-      .lane.control h2 span.t { color:var(--fail); }
-      .lane.healing h2 span.t { color:var(--ok); }
-      .step { padding:8px 10px; border-radius:8px; margin-bottom:6px; border:1px solid var(--line);
-              display:flex; justify-content:space-between; gap:8px; font-family:ui-monospace,monospace; font-size:12px; }
-      .step.ok { border-color:var(--ok); }
-      .step.failed { border-color:var(--fail); background:rgba(255,93,93,.08); }
-      .step.healed { border-color:var(--heal); background:rgba(93,169,255,.08); }
-      .step .s { color:var(--dim); }
-      .heal-note { font-size:12px; color:var(--heal); padding:4px 10px; margin-bottom:6px; }
-      .heal-card { border:1px solid var(--heal); border-radius:10px; padding:10px 12px; margin:6px 0;
-                   background:rgba(93,169,255,.06); display:grid; gap:6px; opacity:0; transform:translateY(6px);
-                   transition:opacity .25s ease, transform .25s ease; }
-      .heal-card.reveal { opacity:1; transform:none; }
-      .heal-card .hc-head { font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--heal); font-weight:700; }
-      .heal-card .hc-old { font-family:ui-monospace,monospace; font-size:12px; color:var(--fail); position:relative; width:max-content; opacity:.7; }
-      .heal-card .hc-old::after { content:""; position:absolute; left:0; top:50%; height:1px; width:0; background:var(--fail); transition:width .3s ease; }
-      .heal-card.reveal .hc-old::after { width:100%; }
-      .heal-card .hc-arrow { color:var(--dim); font-size:14px; opacity:0; transform:translateY(-4px);
-                             transition:opacity .35s ease .3s, transform .35s ease .3s; }
-      .heal-card .hc-new { font-family:ui-monospace,monospace; font-size:13px; color:var(--ok); font-weight:600; opacity:0; transform:translateY(-4px);
-                           transition:opacity .35s ease .3s, transform .35s ease .3s; }
-      .heal-card.reveal .hc-arrow, .heal-card.reveal .hc-new { opacity:1; transform:none; }
-      .heal-card .hc-reason { font-size:12px; color:var(--dim); max-height:60px; overflow:auto; line-height:1.4;
-                              opacity:0; transition:opacity .4s ease .7s; }
-      .heal-card.reveal .hc-reason { opacity:1; }
-      .heal-card .ring { width:40px; height:40px; }
-      .ring-bg { fill:none; stroke:var(--line); stroke-width:4; }
-      .ring-fg { fill:none; stroke:var(--ok); stroke-width:4; stroke-linecap:round; transition:stroke-dashoffset .6s ease .7s; }
-      .ring-txt { fill:var(--ink); font-size:11px; font-family:ui-monospace,monospace; }
-      .heal-card.refused { border-color:var(--accent); background:rgba(255,180,84,.06); }
-      .heal-card.refused .hc-head { color:var(--accent); }
-      .lane.crashed { border-color:var(--fail); box-shadow:0 0 0 1px var(--fail) inset; }
-      .lane.completed { border-color:var(--ok); box-shadow:0 0 0 1px var(--ok) inset; }
-      .status.big { font-size:20px; font-weight:800; letter-spacing:.02em; }
-      .status.big.completed { color:var(--ok); }
-      .status.big.crashed { color:var(--fail); }
-      .lane.crashed .step.failed { animation:pulse 1s ease infinite; }
-      @keyframes pulse { 0%,100% { background:rgba(255,93,93,.08); } 50% { background:rgba(255,93,93,.22); } }
-      .status { font-size:12px; color:var(--dim); }
-      #log { padding:12px 24px; border-top:1px solid var(--line); font-family:ui-monospace,monospace;
-             font-size:11px; color:var(--dim); max-height:160px; overflow:auto; white-space:pre-wrap; }
-    </style>
-  </head>
-  <body>
-    <header>
-      <h1>Mimic</h1>
-      <span class="tag">Show it once. It works forever — and heals when the site changes.</span>
-    </header>
+<!DOCTYPE html>
+<html><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mimic — Show, Don't Code</title>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+  <style>/* arabic */
+@font-face {
+  font-family: 'Almarai';
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+  src: url("assets/e8a7e401-1c60-42de-86f2-fa2cac34e467.woff2") format('woff2');
+  unicode-range: U+0600-06FF, U+0750-077F, U+0870-088E, U+0890-0891, U+0897-08E1, U+08E3-08FF, U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC, U+102E0-102FB, U+10E60-10E7E, U+10EC2-10EC4, U+10EFC-10EFF, U+1EE00-1EE03, U+1EE05-1EE1F, U+1EE21-1EE22, U+1EE24, U+1EE27, U+1EE29-1EE32, U+1EE34-1EE37, U+1EE39, U+1EE3B, U+1EE42, U+1EE47, U+1EE49, U+1EE4B, U+1EE4D-1EE4F, U+1EE51-1EE52, U+1EE54, U+1EE57, U+1EE59, U+1EE5B, U+1EE5D, U+1EE5F, U+1EE61-1EE62, U+1EE64, U+1EE67-1EE6A, U+1EE6C-1EE72, U+1EE74-1EE77, U+1EE79-1EE7C, U+1EE7E, U+1EE80-1EE89, U+1EE8B-1EE9B, U+1EEA1-1EEA3, U+1EEA5-1EEA9, U+1EEAB-1EEBB, U+1EEF0-1EEF1;
+}
+/* latin */
+@font-face {
+  font-family: 'Almarai';
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+  src: url("assets/ab68c4a6-6322-4cda-8f6e-7501a5d2e086.woff2") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* arabic */
+@font-face {
+  font-family: 'Almarai';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("assets/16591ab7-7d76-4c97-83a4-a31b1bc9bca3.woff2") format('woff2');
+  unicode-range: U+0600-06FF, U+0750-077F, U+0870-088E, U+0890-0891, U+0897-08E1, U+08E3-08FF, U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC, U+102E0-102FB, U+10E60-10E7E, U+10EC2-10EC4, U+10EFC-10EFF, U+1EE00-1EE03, U+1EE05-1EE1F, U+1EE21-1EE22, U+1EE24, U+1EE27, U+1EE29-1EE32, U+1EE34-1EE37, U+1EE39, U+1EE3B, U+1EE42, U+1EE47, U+1EE49, U+1EE4B, U+1EE4D-1EE4F, U+1EE51-1EE52, U+1EE54, U+1EE57, U+1EE59, U+1EE5B, U+1EE5D, U+1EE5F, U+1EE61-1EE62, U+1EE64, U+1EE67-1EE6A, U+1EE6C-1EE72, U+1EE74-1EE77, U+1EE79-1EE7C, U+1EE7E, U+1EE80-1EE89, U+1EE8B-1EE9B, U+1EEA1-1EEA3, U+1EEA5-1EEA9, U+1EEAB-1EEBB, U+1EEF0-1EEF1;
+}
+/* latin */
+@font-face {
+  font-family: 'Almarai';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("assets/e760af91-edfc-406e-82d3-97daadf824a9.woff2") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* arabic */
+@font-face {
+  font-family: 'Almarai';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("assets/00124679-f9ee-49d6-a786-b68503a58f67.woff2") format('woff2');
+  unicode-range: U+0600-06FF, U+0750-077F, U+0870-088E, U+0890-0891, U+0897-08E1, U+08E3-08FF, U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC, U+102E0-102FB, U+10E60-10E7E, U+10EC2-10EC4, U+10EFC-10EFF, U+1EE00-1EE03, U+1EE05-1EE1F, U+1EE21-1EE22, U+1EE24, U+1EE27, U+1EE29-1EE32, U+1EE34-1EE37, U+1EE39, U+1EE3B, U+1EE42, U+1EE47, U+1EE49, U+1EE4B, U+1EE4D-1EE4F, U+1EE51-1EE52, U+1EE54, U+1EE57, U+1EE59, U+1EE5B, U+1EE5D, U+1EE5F, U+1EE61-1EE62, U+1EE64, U+1EE67-1EE6A, U+1EE6C-1EE72, U+1EE74-1EE77, U+1EE79-1EE7C, U+1EE7E, U+1EE80-1EE89, U+1EE8B-1EE9B, U+1EEA1-1EEA3, U+1EEA5-1EEA9, U+1EEAB-1EEBB, U+1EEF0-1EEF1;
+}
+/* latin */
+@font-face {
+  font-family: 'Almarai';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("assets/dc0b688c-33aa-4111-b725-b18d86b26ea2.woff2") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* arabic */
+@font-face {
+  font-family: 'Almarai';
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url("assets/f24aa680-675e-428b-9327-b1991262a0a8.woff2") format('woff2');
+  unicode-range: U+0600-06FF, U+0750-077F, U+0870-088E, U+0890-0891, U+0897-08E1, U+08E3-08FF, U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC, U+102E0-102FB, U+10E60-10E7E, U+10EC2-10EC4, U+10EFC-10EFF, U+1EE00-1EE03, U+1EE05-1EE1F, U+1EE21-1EE22, U+1EE24, U+1EE27, U+1EE29-1EE32, U+1EE34-1EE37, U+1EE39, U+1EE3B, U+1EE42, U+1EE47, U+1EE49, U+1EE4B, U+1EE4D-1EE4F, U+1EE51-1EE52, U+1EE54, U+1EE57, U+1EE59, U+1EE5B, U+1EE5D, U+1EE5F, U+1EE61-1EE62, U+1EE64, U+1EE67-1EE6A, U+1EE6C-1EE72, U+1EE74-1EE77, U+1EE79-1EE7C, U+1EE7E, U+1EE80-1EE89, U+1EE8B-1EE9B, U+1EEA1-1EEA3, U+1EEA5-1EEA9, U+1EEAB-1EEBB, U+1EEF0-1EEF1;
+}
+/* latin */
+@font-face {
+  font-family: 'Almarai';
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url("assets/728a2dbb-b2f6-4a86-b01e-e8faeb7d58c9.woff2") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Instrument Serif';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url("assets/5357a561-db87-45ac-b8c2-b4dc8f1c665c.woff2") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Instrument Serif';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url("assets/03dce4ec-f848-406d-9516-4b38b0238a4f.woff2") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+</style>
+  <style>
+    html,body{margin:0;background:#050504;}
+    body{background:radial-gradient(150% 90% at 50% 0%,#16140f 0%,#0a0a08 42%,#050504 100%) fixed;}
+    ::selection{background:#E1E0CC;color:#000;}
+    *{box-sizing:border-box;}
+    x-dc,helmet{display:contents;}
+    /* live demo control bar */
+    .mimic-bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:center;margin:0 auto clamp(26px,4vw,40px);max-width:1180px;}
+    .mimic-bar input{background:#0c0c0a;color:#E1E0CC;border:1px solid rgba(225,224,204,.14);border-radius:999px;padding:9px 16px;font:13px/1 ui-monospace,Menlo,monospace;outline:none;transition:border-color .2s;}
+    .mimic-bar input:focus{border-color:rgba(225,224,204,.5);}
+    .mimic-bar button{background:#0c0c0a;color:#E1E0CC;border:1px solid rgba(225,224,204,.18);border-radius:999px;padding:9px 18px;font:13px/1 'Almarai',sans-serif;font-weight:700;cursor:pointer;transition:all .2s;}
+    .mimic-bar button:hover{border-color:#E1E0CC;}
+    .mimic-bar button.primary{background:#E1E0CC;color:#000;border-color:#E1E0CC;}
+    .mimic-bar button.danger{border-color:rgba(255,107,107,.6);color:#ff9b9b;}
+    .mimic-bar button.danger:hover{border-color:#ff6b6b;}
+    .mimic-bar .sep{width:1px;height:22px;background:rgba(225,224,204,.14);}
+    .mimic-live-dot{display:inline-flex;align-items:center;gap:7px;font:11px/1 ui-monospace,Menlo,monospace;color:rgba(225,224,204,.4);letter-spacing:.04em;}
+    .mimic-live-dot i{width:7px;height:7px;border-radius:50%;background:#6f6e63;display:inline-block;transition:background .3s;}
+    .mimic-live-dot.on i{background:#7fd3a0;box-shadow:0 0 8px rgba(127,211,160,.7);}
+    @keyframes mimicCrash{0%,100%{box-shadow:inset 0 0 0 1px rgba(255,107,107,.55);}50%{box-shadow:inset 0 0 0 1px rgba(255,107,107,1),0 0 34px rgba(255,107,107,.16);}}
+    @keyframes mimicGlow{0%,100%{box-shadow:inset 0 0 0 1px rgba(225,224,204,.45);}50%{box-shadow:inset 0 0 0 1px rgba(225,224,204,.9),0 0 40px rgba(225,224,204,.12);}}
+    @keyframes mimicBlink{0%,49%{opacity:1;}50%,100%{opacity:.15;}}
+    @keyframes mimicDrift{0%{transform:translate(0,0);}100%{transform:translate(-4%,-4%);}}
+  </style>
+</helmet>
+<div id="mimic-lp" style="background:#000;color:#E1E0CC;font-family:'Almarai',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-weight:400;overflow:hidden;-webkit-font-smoothing:antialiased;">
 
-    <div class="bar">
-      <input id="task" placeholder="task name" value="copy customer into form" size="28" />
-      <button id="rec-start">● Record</button>
-      <button id="rec-stop">■ Stop &amp; build workflow</button>
-      <span style="width:16px"></span>
-      <input id="wf" placeholder="workflowId" size="16" />
-      <input id="name" placeholder="customerName" value="Beta LLC" />
-      <input id="email" placeholder="customerEmail" value="hi@beta.com" />
-      <button id="run" class="primary">▶ Run (split-screen)</button>
-      <button id="run-break" class="danger">🔧 Run with broken site</button>
-    </div>
+  <!-- ============ HERO ============ -->
+  <section style="height:100svh;min-height:640px;padding:14px;">
+    <div style="position:relative;width:100%;height:100%;border-radius:28px;overflow:hidden;background:radial-gradient(120% 120% at 70% 10%,#1a1916 0%,#0a0a08 55%,#000 100%);">
+      <video autoplay="" loop="" muted="" playsinline="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.5;">
+        <source src="assets/demo.mp4" type="video/mp4">
+      </video>
+      <div data-noise="hero" style="position:absolute;inset:-20%;opacity:.55;mix-blend-mode:overlay;pointer-events:none;animation:mimicDrift 8s steps(6) infinite alternate;"></div>
+      <div style="position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,.45) 0%,rgba(0,0,0,.12) 30%,rgba(0,0,0,.35) 70%,rgba(0,0,0,.82) 100%);pointer-events:none;"></div>
 
-    <div class="split">
-      <div class="lane control">
-        <h2>Normal agent <span class="t">— no healing</span></h2>
-        <div class="status" id="control-status">idle</div>
-        <div id="control-steps"></div>
+      <!-- nav pill -->
+      <nav style="position:absolute;top:0;left:50%;transform:translateX(-50%);background:#000;border-radius:0 0 22px 22px;padding:11px 30px;display:flex;gap:clamp(14px,3.5vw,52px);align-items:center;z-index:5;">
+        <a data-nav="" href="#how" style="color:rgba(225,224,204,.78);text-decoration:none;font-size:clamp(10px,1vw,13px);letter-spacing:.01em;transition:color .25s;" style-hover="color:#E1E0CC;">How it works</a>
+        <a data-nav="" href="#heal" style="color:rgba(225,224,204,.78);text-decoration:none;font-size:clamp(10px,1vw,13px);letter-spacing:.01em;transition:color .25s;" style-hover="color:#E1E0CC;">Self-healing</a>
+        <a data-nav="" href="#demo" style="color:rgba(225,224,204,.78);text-decoration:none;font-size:clamp(10px,1vw,13px);letter-spacing:.01em;transition:color .25s;" style-hover="color:#E1E0CC;">The demo</a>
+        <a data-nav="" href="#features" style="color:rgba(225,224,204,.78);text-decoration:none;font-size:clamp(10px,1vw,13px);letter-spacing:.01em;transition:color .25s;" style-hover="color:#E1E0CC;">Capabilities</a>
+        <a data-nav="" href="#get" style="color:rgba(225,224,204,.78);text-decoration:none;font-size:clamp(10px,1vw,13px);letter-spacing:.01em;transition:color .25s;" style-hover="color:#E1E0CC;">Get access</a>
+      </nav>
+
+      <!-- eyebrow -->
+      <div data-reveal="" style="position:absolute;top:84px;left:32px;display:flex;align-items:center;gap:10px;z-index:4;opacity:0;transform:translateY(20px);transition:opacity .9s cubic-bezier(.16,1,.3,1),transform .9s cubic-bezier(.16,1,.3,1);">
+        <span style="width:7px;height:7px;border-radius:50%;background:#E1E0CC;display:inline-block;"></span>
+        <span style="font-size:12px;letter-spacing:.22em;text-transform:uppercase;color:rgba(225,224,204,.85);font-weight:700;">Show, don't code</span>
       </div>
-      <div class="lane healing">
-        <h2>Mimic <span class="t">— self-healing</span></h2>
-        <div class="status" id="healing-status">idle</div>
-        <div id="healing-steps"></div>
+
+      <!-- hero content -->
+      <div style="position:absolute;left:0;right:0;bottom:0;padding:0 32px 30px;z-index:4;display:grid;grid-template-columns:repeat(12,1fr);align-items:end;gap:20px;">
+        <h1 data-words="" style="grid-column:1 / span 8;margin:0;font-weight:500;line-height:.82;letter-spacing:-.07em;font-size:clamp(72px,20vw,360px);color:#E1E0CC;opacity:0;">Mimic<sup data-star="" style="font-size:.18em;font-weight:400;vertical-align:top;top:.12em;position:relative;left:-.02em;color:rgba(225,224,204,.7);">*</sup></h1>
+        <div style="grid-column:9 / span 4;display:flex;flex-direction:column;gap:18px;padding-bottom:14px;">
+          <p data-reveal="" data-delay="0.4" style="margin:0;color:rgba(225,224,204,.72);font-size:clamp(13px,1.05vw,17px);line-height:1.35;font-weight:300;opacity:0;transform:translateY(20px);transition:opacity .9s cubic-bezier(.16,1,.3,1),transform .9s cubic-bezier(.16,1,.3,1);">Mimic learns a tedious web task by watching you do it once. Then it replays the work on demand — and when the site changes, it re-grounds the broken step by what it <em style="font-family:'Instrument Serif',serif;font-style:italic;font-weight:400;">means</em> and keeps going.</p>
+          <a data-reveal="" data-delay="0.55" href="#get" class="group" style="display:inline-flex;align-items:center;gap:10px;align-self:flex-start;background:#E1E0CC;color:#000;border-radius:999px;padding:8px 8px 8px 22px;text-decoration:none;font-weight:700;font-size:clamp(13px,1vw,16px);opacity:0;transform:translateY(20px);transition:opacity .9s cubic-bezier(.16,1,.3,1) .15s,transform .9s cubic-bezier(.16,1,.3,1) .15s,gap .3s ease;" style-hover="gap:16px;">Teach it once
+            <span style="display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:50%;background:#000;color:#E1E0CC;">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+            </span>
+          </a>
+        </div>
+      </div>
+      <div style="position:absolute;bottom:22px;left:32px;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:rgba(225,224,204,.45);z-index:4;">Self-healing web automation</div>
+    </div>
+  </section>
+
+  <!-- ============ MANIFESTO / ABOUT ============ -->
+  <section id="how" style="background:#000;padding:clamp(90px,14vh,180px) 24px;">
+    <div style="max-width:1180px;margin:0 auto;background:#0d0d0b;border:1px solid rgba(225,224,204,.07);border-radius:24px;padding:clamp(44px,7vw,96px) clamp(24px,5vw,72px);text-align:center;">
+      <div data-reveal="" style="font-size:11px;letter-spacing:.24em;text-transform:uppercase;color:rgba(225,224,204,.6);font-weight:700;margin-bottom:30px;opacity:0;transform:translateY(20px);transition:opacity .9s cubic-bezier(.16,1,.3,1),transform .9s cubic-bezier(.16,1,.3,1);">The idea</div>
+      <h2 data-words="" style="margin:0 auto;max-width:880px;font-weight:400;line-height:.96;letter-spacing:-.02em;font-size:clamp(30px,5vw,68px);color:#E1E0CC;opacity:0;"><span>Automation has always been </span><span style="font-family:'Instrument Serif',serif;font-style:italic;font-weight:400;color:#cfcbb2;">locked behind code. </span><span>Mimic hands it to everyone else.</span></h2>
+      <p data-chars="" style="margin:42px auto 0;max-width:720px;font-size:clamp(15px,1.5vw,21px);line-height:1.55;color:#DEDBC8;font-weight:300;white-space:pre-wrap;">Knowledge workers lose hours to the same browser busywork — copying records between systems that don't talk, filling one form fifty times. Traditional RPA needs a developer. AI agents improvise, and break the moment a layout shifts. Mimic learns from a single demonstration, and repairs itself when the world changes.</p>
+    </div>
+  </section>
+
+  <!-- ============ THE HEAL MOMENT ============ -->
+  <section id="heal" data-heal-section="" style="background:#000;padding:clamp(60px,9vh,120px) 24px clamp(80px,12vh,160px);">
+    <div style="max-width:1180px;margin:0 auto;">
+      <div data-reveal="" style="display:flex;align-items:center;gap:10px;justify-content:center;margin-bottom:22px;opacity:0;transform:translateY(20px);transition:opacity .9s cubic-bezier(.16,1,.3,1),transform .9s cubic-bezier(.16,1,.3,1);">
+        <span style="font-size:11px;letter-spacing:.24em;text-transform:uppercase;color:#ff6b6b;font-weight:700;">The kill shot</span>
+      </div>
+      <h2 data-words="" style="text-align:center;margin:0 auto 14px;max-width:840px;font-weight:400;line-height:.98;letter-spacing:-.02em;font-size:clamp(28px,4.4vw,58px);opacity:0;"><span>Every agent works on a good day. </span><span style="font-family:'Instrument Serif',serif;font-style:italic;color:#cfcbb2;">Mimic survives the bad ones.</span></h2>
+      <p data-reveal="" style="text-align:center;max-width:600px;margin:0 auto clamp(40px,6vw,64px);color:rgba(225,224,204,.6);font-size:clamp(14px,1.2vw,17px);font-weight:300;opacity:0;transform:translateY(20px);transition:opacity .9s cubic-bezier(.16,1,.3,1),transform .9s cubic-bezier(.16,1,.3,1);">We rename the form's <span style="font-family:'Instrument Serif',serif;font-style:italic;color:#E1E0CC;">Submit</span> button to <span style="font-family:'Instrument Serif',serif;font-style:italic;color:#E1E0CC;">Send</span> mid-run. Same break, side by side.</p>
+
+      <div class="mimic-bar" data-reveal="" style="opacity:0;transform:translateY(20px);transition:opacity .9s cubic-bezier(.16,1,.3,1),transform .9s cubic-bezier(.16,1,.3,1);">
+        <input data-task="" value="copy customer into form" size="22" aria-label="task name" />
+        <button data-record="">● Record</button>
+        <button data-record-stop="">■ Build workflow</button>
+        <span class="sep"></span>
+        <input data-name="" value="Beta LLC" size="10" aria-label="customer name" />
+        <input data-email="" value="hi@beta.com" size="12" aria-label="customer email" />
+        <button data-run="" class="primary">▶ Run live</button>
+        <button data-run-break="" class="danger">🔧 Run on broken site</button>
+        <span class="mimic-live-dot" data-live=""><i></i>offline</span>
+      </div>
+
+      <div id="demo" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <!-- CONTROL LANE -->
+        <div data-lane="control" style="background:#0c0c0a;border:1px solid rgba(225,224,204,.08);border-radius:18px;padding:22px;display:flex;flex-direction:column;gap:12px;">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;">
+            <span style="font-weight:700;font-size:15px;color:#E1E0CC;">Normal agent</span>
+            <span style="font-size:12px;color:rgba(255,107,107,.85);font-weight:700;">no healing</span>
+          </div>
+          <div data-ctrl-status="" style="font-size:12px;color:rgba(225,224,204,.45);font-family:ui-monospace,Menlo,monospace;min-height:16px;">idle</div>
+          <div style="display:flex;flex-direction:column;gap:8px;" data-ctrl-steps="">
+            <div data-cstep="" style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 13px;border:1px solid rgba(225,224,204,.10);border-radius:10px;font:12px/1.4 ui-monospace,Menlo,monospace;color:rgba(225,224,204,.35);transition:all .45s ease;"><span>navigate · target system</span><span data-d="">·</span></div>
+            <div data-cstep="" style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 13px;border:1px solid rgba(225,224,204,.10);border-radius:10px;font:12px/1.4 ui-monospace,Menlo,monospace;color:rgba(225,224,204,.35);transition:all .45s ease;"><span>input · customer name</span><span data-d="">·</span></div>
+            <div data-cstep="" style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 13px;border:1px solid rgba(225,224,204,.10);border-radius:10px;font:12px/1.4 ui-monospace,Menlo,monospace;color:rgba(225,224,204,.35);transition:all .45s ease;"><span>input · email</span><span data-d="">·</span></div>
+            <div data-cstep="" data-fail="" style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 13px;border:1px solid rgba(225,224,204,.10);border-radius:10px;font:12px/1.4 ui-monospace,Menlo,monospace;color:rgba(225,224,204,.35);transition:all .45s ease;"><span>click · #submit-btn</span><span data-d="">·</span></div>
+          </div>
+          <div data-ctrl-end="" style="margin-top:auto;padding-top:10px;font-size:18px;font-weight:800;letter-spacing:.02em;color:#ff6b6b;opacity:0;transition:opacity .4s ease;">✕&nbsp; CRASHED — element not found</div>
+        </div>
+
+        <!-- MIMIC LANE -->
+        <div data-lane="mimic" style="background:#0c0c0a;border:1px solid rgba(225,224,204,.08);border-radius:18px;padding:22px;display:flex;flex-direction:column;gap:12px;">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;">
+            <span style="font-weight:700;font-size:15px;color:#E1E0CC;">Mimic</span>
+            <span style="font-size:12px;color:rgba(225,224,204,.75);font-weight:700;">self-healing</span>
+          </div>
+          <div data-heal-status="" style="font-size:12px;color:rgba(225,224,204,.45);font-family:ui-monospace,Menlo,monospace;min-height:16px;">idle</div>
+          <div style="display:flex;flex-direction:column;gap:8px;" data-heal-steps="">
+            <div data-hstep="" style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 13px;border:1px solid rgba(225,224,204,.10);border-radius:10px;font:12px/1.4 ui-monospace,Menlo,monospace;color:rgba(225,224,204,.35);transition:all .45s ease;"><span>navigate · target system</span><span data-d="">·</span></div>
+            <div data-hstep="" style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 13px;border:1px solid rgba(225,224,204,.10);border-radius:10px;font:12px/1.4 ui-monospace,Menlo,monospace;color:rgba(225,224,204,.35);transition:all .45s ease;"><span>input · customer name</span><span data-d="">·</span></div>
+            <div data-hstep="" style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 13px;border:1px solid rgba(225,224,204,.10);border-radius:10px;font:12px/1.4 ui-monospace,Menlo,monospace;color:rgba(225,224,204,.35);transition:all .45s ease;"><span>input · email</span><span data-d="">·</span></div>
+            <div data-hstep="" data-fail="" style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 13px;border:1px solid rgba(225,224,204,.10);border-radius:10px;font:12px/1.4 ui-monospace,Menlo,monospace;color:rgba(225,224,204,.35);transition:all .45s ease;"><span>click · #submit-btn</span><span data-d="">·</span></div>
+          </div>
+
+          <!-- heal card -->
+          <div data-heal-card="" style="border:1px solid rgba(225,224,204,.3);border-radius:13px;padding:14px 15px;display:flex;flex-direction:column;gap:9px;background:rgba(225,224,204,.04);opacity:0;transform:translateY(8px);transition:opacity .4s ease,transform .4s ease;">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
+              <div style="display:flex;flex-direction:column;gap:8px;flex:1;min-width:0;">
+                <span style="font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#E1E0CC;font-weight:800;">Re-grounded by intent</span>
+                <span style="position:relative;width:max-content;max-width:100%;font:12px/1 ui-monospace,Menlo,monospace;color:#ff6b6b;opacity:.75;">#submit-btn<i data-strike="" style="position:absolute;left:0;top:50%;height:1.5px;width:0;background:#ff6b6b;transition:width .35s ease;"></i></span>
+                <span data-newsel="" style="display:flex;align-items:center;gap:8px;font:13px/1.2 ui-monospace,Menlo,monospace;color:#E1E0CC;font-weight:700;opacity:0;transform:translateY(-4px);transition:opacity .4s ease,transform .4s ease;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(225,224,204,.5)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline></svg>getByRole('button',&nbsp;/send/i)</span>
+              </div>
+              <svg data-ring="" width="46" height="46" viewBox="0 0 46 46" style="flex:none;">
+                <circle cx="23" cy="23" r="19" fill="none" stroke="rgba(225,224,204,.14)" stroke-width="4"></circle>
+                <circle data-ring-fg="" cx="23" cy="23" r="19" fill="none" stroke="#E1E0CC" stroke-width="4" stroke-linecap="round" stroke-dasharray="119.4" stroke-dashoffset="119.4" transform="rotate(-90 23 23)" style="transition:stroke-dashoffset .7s ease .15s;"></circle>
+                <text data-ring-txt="" x="23" y="27" text-anchor="middle" fill="#E1E0CC" style="font:10px ui-monospace,Menlo,monospace;">0%</text>
+              </svg>
+            </div>
+            <span data-reason="" style="font-size:11.5px;line-height:1.45;color:rgba(225,224,204,.55);opacity:0;transition:opacity .4s ease;">Intent <span style="color:rgba(225,224,204,.8);">"submit the form"</span> matched the only button inside the form. Selector patched, retried, written back to the workflow.</span>
+          </div>
+
+          <div data-heal-end="" style="margin-top:auto;padding-top:6px;font-size:18px;font-weight:800;letter-spacing:.02em;color:#E1E0CC;opacity:0;transition:opacity .4s ease;">✓&nbsp; HEALED — workflow v2 saved</div>
+        </div>
+      </div>
+      <div data-reveal="" style="text-align:center;margin-top:26px;font-size:13px;color:rgba(225,224,204,.4);font-family:ui-monospace,Menlo,monospace;opacity:0;transform:translateY(20px);transition:opacity .9s cubic-bezier(.16,1,.3,1),transform .9s cubic-bezier(.16,1,.3,1);">One agent dies. The other writes the fix back so it never breaks there again.</div>
+    </div>
+  </section>
+
+  <!-- ============ FEATURES ============ -->
+  <section id="features" style="position:relative;background:#000;padding:clamp(70px,10vh,130px) 24px clamp(80px,12vh,150px);">
+    <div data-noise="bg" style="position:absolute;inset:0;opacity:.13;pointer-events:none;"></div>
+    <div style="position:relative;max-width:1240px;margin:0 auto;">
+      <h2 data-words="" style="margin:0 0 clamp(40px,6vw,64px);max-width:760px;font-weight:400;line-height:1;letter-spacing:-.02em;font-size:clamp(26px,3.6vw,46px);opacity:0;"><span style="color:#E1E0CC;">Studio-grade automation for people who don't code. </span><span style="color:#6f6e63;">Teach it once. It works forever.</span></h2>
+
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">
+        <!-- card 1: visual -->
+        <div data-card="" style="position:relative;min-height:440px;border-radius:16px;overflow:hidden;background:radial-gradient(120% 120% at 30% 0%,#26251f 0%,#0a0a08 60%);display:flex;flex-direction:column;justify-content:flex-end;padding:22px;opacity:0;transform:scale(.96);transition:opacity .8s cubic-bezier(.22,1,.36,1),transform .8s cubic-bezier(.22,1,.36,1);">
+          <div data-noise="hero" style="position:absolute;inset:-20%;opacity:.4;mix-blend-mode:overlay;animation:mimicDrift 9s steps(6) infinite alternate;"></div>
+          <div data-pulse="" style="position:absolute;top:42%;left:50%;width:140px;height:140px;border-radius:50%;background:radial-gradient(circle,rgba(225,224,204,.35) 0%,rgba(225,224,204,0) 70%);transform:translate(-50%,-50%);"></div>
+          <div style="position:relative;z-index:2;">
+            <div style="font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:rgba(225,224,204,.55);margin-bottom:8px;">live</div>
+            <div style="font-size:26px;font-weight:400;letter-spacing:-.02em;color:#E1E0CC;line-height:1.05;">Watch it heal<br>itself.</div>
+          </div>
+        </div>
+
+        <!-- card 2 -->
+        <div data-card="" style="background:#1c1c19;border-radius:16px;padding:22px;display:flex;flex-direction:column;min-height:440px;opacity:0;transform:scale(.96);transition:opacity .8s cubic-bezier(.22,1,.36,1),transform .8s cubic-bezier(.22,1,.36,1);">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+            <div style="width:40px;height:40px;border-radius:11px;background:rgba(225,224,204,.08);display:flex;align-items:center;justify-content:center;color:#E1E0CC;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"></circle><circle cx="12" cy="12" r="3.2" fill="currentColor" stroke="none"></circle></svg></div>
+            <span style="font:12px ui-monospace,Menlo,monospace;color:rgba(225,224,204,.35);">01</span>
+          </div>
+          <h3 style="margin:18px 0 14px;font-size:21px;font-weight:400;letter-spacing:-.01em;color:#E1E0CC;">Record once.</h3>
+          <div style="display:flex;flex-direction:column;gap:11px;flex:1;">
+            <div style="display:flex;gap:9px;align-items:flex-start;"><span style="color:#E1E0CC;flex:none;margin-top:1px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span><span style="font-size:13px;color:#9b988b;line-height:1.4;">Demonstrate the task in a real browser</span></div>
+            <div style="display:flex;gap:9px;align-items:flex-start;"><span style="color:#E1E0CC;flex:none;margin-top:1px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span><span style="font-size:13px;color:#9b988b;line-height:1.4;">Every click and keystroke captured</span></div>
+            <div style="display:flex;gap:9px;align-items:flex-start;"><span style="color:#E1E0CC;flex:none;margin-top:1px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span><span style="font-size:13px;color:#9b988b;line-height:1.4;">Page context saved at every step</span></div>
+            <div style="display:flex;gap:9px;align-items:flex-start;"><span style="color:#E1E0CC;flex:none;margin-top:1px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span><span style="font-size:13px;color:#9b988b;line-height:1.4;">No selectors to write by hand</span></div>
+          </div>
+          <a data-nav="" href="#get" style="display:inline-flex;align-items:center;gap:7px;color:#E1E0CC;text-decoration:none;font-size:13px;font-weight:700;margin-top:14px;">Learn more<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transform:rotate(-45deg);"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg></a>
+        </div>
+
+        <!-- card 3 -->
+        <div data-card="" style="background:#1c1c19;border-radius:16px;padding:22px;display:flex;flex-direction:column;min-height:440px;opacity:0;transform:scale(.96);transition:opacity .8s cubic-bezier(.22,1,.36,1),transform .8s cubic-bezier(.22,1,.36,1);">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+            <div style="width:40px;height:40px;border-radius:11px;background:rgba(225,224,204,.08);display:flex;align-items:center;justify-content:center;color:#E1E0CC;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.5 15a9 9 0 1 1-2.1-9.4L23 10"></path></svg></div>
+            <span style="font:12px ui-monospace,Menlo,monospace;color:rgba(225,224,204,.35);">02</span>
+          </div>
+          <h3 style="margin:18px 0 14px;font-size:21px;font-weight:400;letter-spacing:-.01em;color:#E1E0CC;">Replay unattended.</h3>
+          <div style="display:flex;flex-direction:column;gap:11px;flex:1;">
+            <div style="display:flex;gap:9px;align-items:flex-start;"><span style="color:#E1E0CC;flex:none;margin-top:1px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span><span style="font-size:13px;color:#9b988b;line-height:1.4;">Runs against new rows of data</span></div>
+            <div style="display:flex;gap:9px;align-items:flex-start;"><span style="color:#E1E0CC;flex:none;margin-top:1px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span><span style="font-size:13px;color:#9b988b;line-height:1.4;">Fills forms while you do other work</span></div>
+            <div style="display:flex;gap:9px;align-items:flex-start;"><span style="color:#E1E0CC;flex:none;margin-top:1px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span><span style="font-size:13px;color:#9b988b;line-height:1.4;">Deterministic, not improvised</span></div>
+            <div style="display:flex;gap:9px;align-items:flex-start;"><span style="color:#E1E0CC;flex:none;margin-top:1px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span><span style="font-size:13px;color:#9b988b;line-height:1.4;">Stops to ask only when truly stuck</span></div>
+          </div>
+          <a data-nav="" href="#get" style="display:inline-flex;align-items:center;gap:7px;color:#E1E0CC;text-decoration:none;font-size:13px;font-weight:700;margin-top:14px;">Learn more<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transform:rotate(-45deg);"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg></a>
+        </div>
+
+        <!-- card 4 -->
+        <div data-card="" style="background:#1c1c19;border-radius:16px;padding:22px;display:flex;flex-direction:column;min-height:440px;opacity:0;transform:scale(.96);transition:opacity .8s cubic-bezier(.22,1,.36,1),transform .8s cubic-bezier(.22,1,.36,1);">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+            <div style="width:40px;height:40px;border-radius:11px;background:rgba(225,224,204,.08);display:flex;align-items:center;justify-content:center;color:#E1E0CC;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5l7.5 3.2v5c0 5-3.3 8.4-7.5 10.3-4.2-1.9-7.5-5.3-7.5-10.3v-5z"></path><polyline points="9 12 11.2 14 15 9.5"></polyline></svg></div>
+            <span style="font:12px ui-monospace,Menlo,monospace;color:rgba(225,224,204,.35);">03</span>
+          </div>
+          <h3 style="margin:18px 0 14px;font-size:21px;font-weight:400;letter-spacing:-.01em;color:#E1E0CC;">Self-heal on change.</h3>
+          <div style="display:flex;flex-direction:column;gap:11px;flex:1;">
+            <div style="display:flex;gap:9px;align-items:flex-start;"><span style="color:#E1E0CC;flex:none;margin-top:1px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span><span style="font-size:13px;color:#9b988b;line-height:1.4;">Detects the failed step instantly</span></div>
+            <div style="display:flex;gap:9px;align-items:flex-start;"><span style="color:#E1E0CC;flex:none;margin-top:1px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span><span style="font-size:13px;color:#9b988b;line-height:1.4;">Re-finds the element by its intent</span></div>
+            <div style="display:flex;gap:9px;align-items:flex-start;"><span style="color:#E1E0CC;flex:none;margin-top:1px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span><span style="font-size:13px;color:#9b988b;line-height:1.4;">Patches and retries automatically</span></div>
+            <div style="display:flex;gap:9px;align-items:flex-start;"><span style="color:#E1E0CC;flex:none;margin-top:1px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span><span style="font-size:13px;color:#9b988b;line-height:1.4;">Writes the fix back — never breaks twice</span></div>
+          </div>
+          <a data-nav="" href="#get" style="display:inline-flex;align-items:center;gap:7px;color:#E1E0CC;text-decoration:none;font-size:13px;font-weight:700;margin-top:14px;">Learn more<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transform:rotate(-45deg);"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg></a>
+        </div>
       </div>
     </div>
+  </section>
 
-    <div id="log"></div>
-    <script src="/app.js"></script>
-  </body>
-</html>
+  <!-- ============ FOOTER CTA ============ -->
+  <section id="get" style="background:#000;padding:clamp(80px,14vh,200px) 24px clamp(60px,9vh,110px);text-align:center;">
+    <h2 data-words="" style="margin:0 auto;max-width:1000px;font-weight:500;line-height:.9;letter-spacing:-.05em;font-size:clamp(48px,11vw,170px);color:#E1E0CC;opacity:0;"><span>Show it once. </span><span style="font-family:'Instrument Serif',serif;font-style:italic;font-weight:400;color:#cfcbb2;">It works forever.</span></h2>
+    <div data-reveal="" style="margin-top:clamp(34px,5vw,52px);display:flex;flex-direction:column;align-items:center;gap:18px;opacity:0;transform:translateY(20px);transition:opacity .9s cubic-bezier(.16,1,.3,1),transform .9s cubic-bezier(.16,1,.3,1);">
+      <a href="#how" style="display:inline-flex;align-items:center;gap:10px;background:#E1E0CC;color:#000;border-radius:999px;padding:10px 10px 10px 26px;text-decoration:none;font-weight:700;font-size:17px;transition:gap .3s ease;" style-hover="gap:16px;">Start teaching it
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:42px;height:42px;border-radius:50%;background:#000;color:#E1E0CC;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg></span>
+      </a>
+      <div style="font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:rgba(225,224,204,.4);">Built at the Berkeley AI Hackathon · Self-healing web automation</div>
+    </div>
+  </section>
+
+</div>
+</x-dc>
+<script data-dc-script="" data-props="{&quot;healTrigger&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;on-scroll&quot;,&quot;on-click&quot;],&quot;default&quot;:&quot;on-scroll&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;loopHeal&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;}}">
+class MimicLP {
+  constructor() { this.props = { healTrigger: 'on-scroll', loopHeal: false }; this._timers = []; }
+  componentDidMount() {
+    window.__mimicLP = this;
+    const root = document.getElementById('mimic-lp');
+    if (!root) return;
+    this.root = root;
+    this.healPlayed = false;
+    this.reveals = [];
+    this.applyNoise(root);
+    this.registerWords(root);
+    this.registerFades(root);
+    this.registerHeal(root);
+    this.setupChars(root);
+    const check = () => this.checkReveals();
+    this._check = check;
+    window.addEventListener('scroll', check, { passive: true });
+    window.addEventListener('resize', check, { passive: true });
+    check();
+    requestAnimationFrame(check);
+    let n = 0;
+    const iv = setInterval(() => { check(); if (++n > 25) clearInterval(iv); }, 200);
+  }
+
+  checkReveals() {
+    if (!this.reveals) return;
+    const vh = window.innerHeight;
+    this.reveals.forEach(r => {
+      if (r.done) return;
+      const rect = r.el.getBoundingClientRect();
+      const line = vh * (r.margin != null ? r.margin : 0.88);
+      if (rect.top < line && rect.bottom > 0) { r.done = true; r.fn(); }
+    });
+  }
+
+  applyNoise(root) {
+    const mk = (bf, oct) => "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='" + bf + "' numOctaves='" + oct + "' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")";
+    root.querySelectorAll('[data-noise]').forEach(el => {
+      const t = el.getAttribute('data-noise');
+      el.style.backgroundImage = t === 'bg' ? mk('0.9', '4') : mk('0.85', '3');
+      el.style.backgroundSize = '200px 200px';
+    });
+  }
+
+  // word pull-up (scroll-driven; IntersectionObserver does not fire in this env)
+  registerWords(root) {
+    const ease = 'cubic-bezier(.16,1,.3,1)';
+    const pushTokens = (text, parent, words) => {
+      text.split(/(\s+)/).forEach(tok => {
+        if (tok === '') return;
+        if (/^\s+$/.test(tok)) { parent.appendChild(document.createTextNode(tok)); return; }
+        const outer = document.createElement('span');
+        outer.style.cssText = 'display:inline-block;overflow:hidden;vertical-align:bottom;';
+        const inner = document.createElement('span');
+        inner.style.cssText = 'display:inline-block;transform:translateY(115%);transition:transform .85s ' + ease + ';';
+        inner.textContent = tok;
+        outer.appendChild(inner);
+        parent.appendChild(outer);
+        words.push(inner);
+      });
+    };
+    root.querySelectorAll('[data-words]').forEach(h => {
+      const words = [];
+      const frag = document.createDocumentFragment();
+      Array.from(h.childNodes).forEach(node => {
+        if (node.nodeType === 3) { pushTokens(node.textContent, frag, words); }
+        else if (node.tagName === 'SPAN') {
+          const seg = document.createElement('span');
+          seg.style.cssText = node.style.cssText;
+          pushTokens(node.textContent, seg, words);
+          frag.appendChild(seg);
+        } else { frag.appendChild(node.cloneNode(true)); }
+      });
+      h.textContent = '';
+      h.appendChild(frag);
+      h.style.opacity = '1';
+      this.reveals.push({ el: h, done: false, fn: () => {
+        words.forEach((w, i) => { w.style.transitionDelay = (i * 0.045) + 's'; w.style.transform = 'translateY(0)'; });
+      } });
+    });
+  }
+
+  // simple fade-up reveals + card scale-ins (scroll-driven)
+  registerFades(root) {
+    root.querySelectorAll('[data-reveal]').forEach(el => {
+      this.reveals.push({ el, done: false, fn: () => {
+        const d = parseFloat(el.getAttribute('data-delay') || '0');
+        el.style.transitionDelay = d + 's';
+        el.style.opacity = '1';
+        el.style.transform = 'none';
+      } });
+    });
+    root.querySelectorAll('[data-card]').forEach((el, i) => {
+      this.reveals.push({ el, done: false, fn: () => {
+        el.style.transitionDelay = (i * 0.12) + 's';
+        el.style.opacity = '1';
+        el.style.transform = 'none';
+      } });
+    });
+  }
+
+  // scroll-linked character reveal
+  setupChars(root) {
+    const p = root.querySelector('[data-chars]');
+    if (!p) return;
+    const text = p.textContent;
+    p.textContent = '';
+    const spans = [];
+    for (const ch of text) {
+      const s = document.createElement('span');
+      s.textContent = ch;
+      s.style.color = 'inherit';
+      s.style.opacity = '0.16';
+      s.style.transition = 'opacity .25s linear';
+      p.appendChild(s);
+      spans.push(s);
+    }
+    const total = spans.length;
+    let ticking = false;
+    const update = () => {
+      ticking = false;
+      const r = p.getBoundingClientRect();
+      const vh = window.innerHeight;
+      const start = vh * 0.85, end = vh * 0.2;
+      let prog = (start - r.top) / (r.height + (start - end));
+      prog = Math.max(0, Math.min(1, prog));
+      const head = prog * 1.15;
+      for (let i = 0; i < total; i++) {
+        const cp = i / total;
+        let o = (head - cp) * 9;
+        o = Math.max(0.16, Math.min(1, o));
+        spans[i].style.opacity = o.toFixed(3);
+      }
+    };
+    const onScroll = () => { if (!ticking) { ticking = true; requestAnimationFrame(update); } };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll, { passive: true });
+    update();
+  }
+
+  registerHeal(root) {
+    const sec = root.querySelector('[data-heal-section]');
+    if (!sec) return;
+    const trigger = (this.props && this.props.healTrigger) || 'on-scroll';
+    if (trigger === 'on-click') {
+      sec.style.cursor = 'pointer';
+      sec.addEventListener('click', () => { this.resetHeal(root); setTimeout(() => this.playHeal(root), 60); });
+    }
+    this.reveals.push({ el: sec, margin: 0.55, done: false, fn: () => {
+      if (window.__mimicLive) return;
+      if (!this.healPlayed) { this.healPlayed = true; this.playHeal(root); }
+    } });
+  }
+
+  resetHeal(root) {
+    const okR = (s) => { s.style.borderColor = 'rgba(225,224,204,.10)'; s.style.color = 'rgba(225,224,204,.35)'; s.style.background = 'transparent'; const d = s.querySelector('[data-d]'); if (d) { d.textContent = '\u00b7'; d.style.color = 'inherit'; d.style.animation = ''; } };
+    root.querySelectorAll('[data-cstep]').forEach(okR);
+    root.querySelectorAll('[data-hstep]').forEach(okR);
+    const ce = root.querySelector('[data-ctrl-end]'); if (ce) ce.style.opacity = '0';
+    const he = root.querySelector('[data-heal-end]'); if (he) he.style.opacity = '0';
+    const cs = root.querySelector('[data-ctrl-status]'); if (cs) { cs.textContent = 'idle'; cs.style.color = 'rgba(225,224,204,.45)'; }
+    const hs = root.querySelector('[data-heal-status]'); if (hs) { hs.textContent = 'idle'; hs.style.color = 'rgba(225,224,204,.45)'; }
+    const cl = root.querySelector('[data-lane="control"]'); if (cl) cl.style.animation = '';
+    const hl = root.querySelector('[data-lane="mimic"]'); if (hl) hl.style.animation = '';
+    const card = root.querySelector('[data-heal-card]'); if (card) { card.style.opacity = '0'; card.style.transform = 'translateY(8px)'; }
+    const strike = root.querySelector('[data-strike]'); if (strike) strike.style.width = '0';
+    const ns = root.querySelector('[data-newsel]'); if (ns) { ns.style.opacity = '0'; ns.style.transform = 'translateY(-4px)'; }
+    const ring = root.querySelector('[data-ring-fg]'); if (ring) ring.style.strokeDashoffset = '119.4';
+    const rt = root.querySelector('[data-ring-txt]'); if (rt) rt.textContent = '0%';
+    const reason = root.querySelector('[data-reason]'); if (reason) reason.style.opacity = '0';
+    this.healPlayed = true;
+  }
+
+  stopCanned() {
+    (this._timers || []).forEach(t => { clearTimeout(t); clearInterval(t); });
+    this._timers = [];
+    this.healPlayed = true;
+  }
+
+  playHeal(root) {
+    if (window.__mimicLive) return;
+    const ok = (s) => { s.style.borderColor = 'rgba(120,210,160,.5)'; s.style.color = 'rgba(225,224,204,.85)'; const d = s.querySelector('[data-d]'); if (d) { d.textContent = '\u2713'; d.style.color = '#7fd3a0'; } };
+    const fail = (s) => { s.style.borderColor = 'rgba(255,107,107,.85)'; s.style.background = 'rgba(255,107,107,.08)'; s.style.color = '#ff9b9b'; const d = s.querySelector('[data-d]'); if (d) { d.textContent = '\u2715'; d.style.color = '#ff6b6b'; d.style.animation = 'mimicBlink 1s steps(1) infinite'; } };
+    const healed = (s) => { s.style.borderColor = 'rgba(225,224,204,.7)'; s.style.background = 'rgba(225,224,204,.07)'; s.style.color = '#E1E0CC'; s.style.animation = ''; const d = s.querySelector('[data-d]'); if (d) { d.textContent = '\u2713'; d.style.color = '#E1E0CC'; d.style.animation = ''; } };
+
+    const csteps = root.querySelectorAll('[data-cstep]');
+    const hsteps = root.querySelectorAll('[data-hstep]');
+    const cStatus = root.querySelector('[data-ctrl-status]');
+    const hStatus = root.querySelector('[data-heal-status]');
+    const T = [];
+    const at = (ms, fn) => T.push(setTimeout(fn, ms));
+
+    if (cStatus) cStatus.textContent = 'running\u2026';
+    if (hStatus) hStatus.textContent = 'running\u2026';
+
+    // first three steps OK on both lanes, staggered
+    [0, 1, 2].forEach((i, k) => {
+      at(350 + k * 420, () => { if (csteps[i]) ok(csteps[i]); });
+      at(350 + k * 420, () => { if (hsteps[i]) ok(hsteps[i]); });
+    });
+
+    // step 4 fails on both
+    at(1700, () => {
+      if (csteps[3]) fail(csteps[3]);
+      if (hsteps[3]) fail(hsteps[3]);
+    });
+
+    // control lane dies
+    at(2350, () => {
+      const cl = root.querySelector('[data-lane="control"]');
+      if (cl) cl.style.animation = 'mimicCrash 1s ease infinite';
+      const ce = root.querySelector('[data-ctrl-end]'); if (ce) ce.style.opacity = '1';
+      if (cStatus) { cStatus.textContent = 'dead \u2014 no recovery'; cStatus.style.color = '#ff6b6b'; }
+    });
+
+    // mimic lane heals
+    at(2500, () => { if (hStatus) { hStatus.textContent = 'healing\u2026'; hStatus.style.color = '#E1E0CC'; } });
+    at(2650, () => { const card = root.querySelector('[data-heal-card]'); if (card) { card.style.opacity = '1'; card.style.transform = 'none'; } });
+    at(3050, () => { const strike = root.querySelector('[data-strike]'); if (strike) strike.style.width = '100%'; });
+    at(3350, () => { const ns = root.querySelector('[data-newsel]'); if (ns) { ns.style.opacity = '1'; ns.style.transform = 'none'; } });
+    at(3500, () => {
+      const ring = root.querySelector('[data-ring-fg]'); if (ring) ring.style.strokeDashoffset = (119.4 * (1 - 0.94)).toFixed(1);
+      const rt = root.querySelector('[data-ring-txt]');
+      if (rt) { let v = 0; const iv = setInterval(() => { v += 4; if (v >= 94) { v = 94; clearInterval(iv); } rt.textContent = v + '%'; }, 24); T.push(iv); }
+    });
+    at(3700, () => { const reason = root.querySelector('[data-reason]'); if (reason) reason.style.opacity = '1'; });
+    at(4350, () => { if (hsteps[3]) healed(hsteps[3]); });
+    at(4600, () => {
+      const hl = root.querySelector('[data-lane="mimic"]');
+      if (hl) hl.style.animation = 'mimicGlow 2.4s ease infinite';
+      const he = root.querySelector('[data-heal-end]'); if (he) he.style.opacity = '1';
+      if (hStatus) { hStatus.textContent = 'completed \u2014 fix written back'; hStatus.style.color = '#E1E0CC'; }
+    });
+
+    if ((this.props && this.props.loopHeal)) {
+      at(7200, () => { this.resetHeal(root); });
+      at(7700, () => { this.playHeal(root); });
+    }
+    this._timers = T;
+  }
+}
+document.addEventListener('DOMContentLoaded', function () {
+  var lp = new MimicLP();
+  lp.componentDidMount();
+});
+</script>
+<script src="/live.js"></script>
+
+
+</body></html>
