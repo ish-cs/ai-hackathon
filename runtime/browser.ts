@@ -12,6 +12,9 @@ export interface OpenOpts {
   lane: "control" | "healing" | "record";
   /** Recorder needs a read/write live view; replay lanes are read-only. UI-side concern only. */
   interactive?: boolean;
+  /** Browserbase only: reuse a warmed Context (e.g. a logged-in burner LinkedIn), read-only (persist:false).
+   *  Set for the Cost Race Mimic lane so it boots already signed in; omit for the original demo. */
+  contextId?: string;
 }
 
 export interface OpenedBrowser {
@@ -67,7 +70,14 @@ async function openBrowserbase(opts: OpenOpts): Promise<OpenedBrowser> {
   const session = await bb.sessions.create({
     // projectId is inferred from the key; viewport sized for a projector.
     timeout: 180, // seconds — cap a leaked/lingering session so it can't silently burn free-tier minutes
-    browserSettings: { viewport: { width: 1280, height: 800 }, blockAds: true },
+    // A warmed Context (Cost Race Mimic lane) also needs the residential proxy so LinkedIn sees a normal
+    // user; the original demo (no contextId) keeps today's plain session untouched.
+    ...(opts.contextId ? { proxies: true } : {}),
+    browserSettings: {
+      viewport: { width: 1280, height: 800 },
+      blockAds: true,
+      ...(opts.contextId ? { context: { id: opts.contextId, persist: false }, solveCaptchas: true } : {}),
+    },
   });
 
   const browser = await chromium.connectOverCDP(session.connectUrl);

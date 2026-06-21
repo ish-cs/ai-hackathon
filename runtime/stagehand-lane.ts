@@ -26,7 +26,7 @@ export interface StagehandLaneConfig {
   contextId?: string;
   /** Residential proxy — needed to look like a real user on LinkedIn. Default true. */
   proxies?: boolean;
-  /** Advanced Stealth / Verified mode (bot-detection evasion; needs Scale/Dev plan). Default true. */
+  /** Advanced Stealth (Verified mode) — ENTERPRISE-only, so OFF by default. Basic fingerprinting + proxy otherwise. */
   stealth?: boolean;
   /** Cap the agent's steps per round. Default 25. */
   maxSteps?: number;
@@ -69,7 +69,9 @@ export class StagehandLane {
         proxies: this.cfg.proxies ?? true, // residential proxy → looks like a real user
         browserSettings: {
           viewport: { width: 1280, height: 800 },
-          advancedStealth: this.cfg.stealth ?? true, // bot-detection evasion
+          // advancedStealth (Verified mode) is ENTERPRISE-only → 403 on Dev/Scale. Only send it when
+          // explicitly enabled; otherwise rely on default fingerprinting + the residential proxy.
+          ...(this.cfg.stealth ? { advancedStealth: true } : {}),
           solveCaptchas: true,
           // Reuse the warmed burner LinkedIn auth so there's no login on stage. persist:false → read
           // the auth, never write back, so concurrent lanes can't corrupt the warmed Context.
