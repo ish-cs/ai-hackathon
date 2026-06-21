@@ -27,10 +27,9 @@ for (let i = 0; i < 80; i++) {
   await sleep(100);
 }
 
-// tab 1: search → open profile → Message → compose → Send
+// tab 1: search → click the target's Message in the results list → compose → Send
 await li.fill("#li-search", "Sarah Chen");
-await li.click("#li-result");
-await li.click("#li-message-btn");
+await li.click('[data-name="Sarah Chen"] .li-message');
 await li.fill("#li-compose", "Hi Sarah Chen, saw you're VP Engineering at Acme — would love to connect.");
 await li.click("#li-send");
 await sleep(500);
