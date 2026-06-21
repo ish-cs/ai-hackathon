@@ -159,8 +159,16 @@ app.post("/api/replay", async (req, res) => {
 // Config via env so the live-LinkedIn details (workflow id, burner Contexts, break target) stay out of
 // code: DEMO_WORKFLOW_ID, STAGEHAND_INSTRUCTION, DEMO_START_URL, BURNER_CONTEXT_STAGEHAND/_MIMIC,
 // BREAK_SELECTOR + BREAK_NEW_ID/_TEXT, RACE_ROUNDS/_BREAK_AT.
-const RACE_ROUNDS = Number(process.env.RACE_ROUNDS ?? 4);
-const RACE_BREAK_AT = Number(process.env.RACE_BREAK_AT ?? 3);
+// The LeadSheet the race scans top-down (mirrors the first rows of mock-public/leads.js + their statuses).
+// status: "none" = not contacted (the race messages these); "msg"/"reply" = already contacted (skipped).
+// row = the lead's position in the LinkedUp list (leads.js order) → the Mimic click retarget targets it.
+const DEMO_LEADS = [
+  { name: "Sarah Chen", role: "VP Engineering", company: "Acme", status: "none" },
+  { name: "Marcus Lee", role: "Head of Product", company: "Globex", status: "msg" },
+  { name: "Priya Patel", role: "CTO", company: "Initech", status: "reply" },
+  { name: "Diego Alvarez", role: "Director of Sales", company: "Umbrella", status: "none" },
+  { name: "Hana Suzuki", role: "Founder", company: "Hooli", status: "none" },
+].map((l, i) => ({ ...l, row: i + 1, message: `Hi ${l.name}, I came across your work as ${l.role} at ${l.company} and would love to connect about what your team is building.` }));
 
 app.post("/api/race", async (req, res) => {
   const body = (req.body ?? {}) as { workflowId?: string; row?: DataRow };
@@ -170,22 +178,24 @@ app.post("/api/race", async (req, res) => {
   const workflow = history.length ? history[0].wf : await getWorkflow(workflowId);
   if (!workflow) return res.status(404).json({ error: "workflow not found" });
 
-  // Same lead for both lanes: explicit row, else the workflow's example values.
-  const row = body.row ?? Object.fromEntries(workflow.parameters.map((p) => [p.name, p.example]));
   const instruction = process.env.STAGEHAND_INSTRUCTION ?? workflow.task;
   const startUrl = process.env.DEMO_START_URL ?? workflow.startUrl;
   const breakSpec = process.env.BREAK_SELECTOR
     ? { selector: process.env.BREAK_SELECTOR, newId: process.env.BREAK_NEW_ID, newText: process.env.BREAK_NEW_TEXT }
     : undefined;
 
-  res.json({ ok: true, rounds: RACE_ROUNDS, breakAt: RACE_BREAK_AT });
+  // The race scans the LeadSheet top-down and contacts every "not contacted" row.
+  const queue = DEMO_LEADS.filter((l) => l.status === "none");
+  const breakAtLead = Math.min(2, queue.length); // break the LinkedUp Send on the 2nd lead → heal, then recover
+
+  res.json({ ok: true, rounds: queue.length, breakAt: breakAtLead });
 
   // Orchestrate async; stream every event over the WS. A lane failure is logged, never crashes the server
   // (a Stagehand misclick/timeout is fine — it only strengthens the cost contrast).
   void (async () => {
     // stealth:false — advancedStealth/Verified is Enterprise-only (403 on our Dev plan). We run basic
     // fingerprinting + residential proxy, which held up through Context warming + reuse.
-    const stagehand = new StagehandLane({ startUrl, instruction, contextId: process.env.STAGEHAND_CONTEXT_ID, stealth: false });
+    const stagehand = new StagehandLane({ startUrl, instruction, contextId: process.env.STAGEHAND_CONTEXT_ID, stealth: false, maxSteps: 18 });
     const mimic = new MimicLane({ workflow, contextId: process.env.MIMIC_CONTEXT_ID, breakSpec });
     try {
       const [s, m] = await Promise.all([stagehand.open(), mimic.open()]);
@@ -202,12 +212,39 @@ app.post("/api/race", async (req, res) => {
       }
       broadcast({ kind: "metrics", lane: "stagehand", run: 0, phase: "teaching", tokensIn: 0, tokensOut: 0, ms: 0, costUsd: 0 });
 
-      for (let r = 1; r <= RACE_ROUNDS; r++) {
-        await Promise.all([
-          stagehand.runRound(row, r, broadcast),
-          mimic.runRound(row, r, broadcast, { breakNow: r === RACE_BREAK_AT }),
-        ]);
-      }
+      // Mimic replays the recorded multi-tab flow. Two clicks are row-dependent — the sheet's "Message on
+      // LinkedIn" link (tab 0) and the LinkedUp Message button (tab 1). Both render leads in the same order,
+      // so re-point each to the lead's row index per lead (sheet shows all leads; LinkedUp shows the top 20).
+      const sheetClick = workflow.steps.find((st) => st.action === "click" && (st.tab ?? 0) === 0);
+      const liClick = workflow.steps.find((st) => st.action === "click" && st.tab === 1);
+      const baseSheet = sheetClick?.selector ?? "";
+      const baseLi = liClick?.selector ?? "";
+
+      // DECOUPLED lanes: each walks the uncontacted queue at its OWN pace (no per-lead barrier), so the
+      // per-lane timer + live-view fill independently — Mimic races through while Stagehand crawls.
+      const runLane = async (lane: "stagehand" | "mimic", body: (lead: (typeof queue)[number], n: number) => Promise<unknown>): Promise<void> => {
+        broadcast({ kind: "timer", lane, state: "start" });
+        const t0 = Date.now();
+        for (let n = 1; n <= queue.length; n++) await body(queue[n - 1], n);
+        broadcast({ kind: "timer", lane, state: "stop", elapsedMs: Date.now() - t0 });
+      };
+
+      await Promise.all([
+        runLane("stagehand", async (lead, n) => {
+          console.log(`[race] stagehand → ${lead.name}`);
+          const r = await stagehand.runRound({ name: lead.name, role: lead.role, company: lead.company }, n, broadcast);
+          console.log(`[race] stagehand ${lead.name} done: ok=${r.ok} tokIn=${r.tokensIn} msg=${String(r.message).slice(0, 140)}`);
+          return r;
+        }),
+        runLane("mimic", (lead, n) => {
+          // Mutate both source selectors right before runRound clones them (sync until its first await) → the
+          // clone replays this lead's sheet row + LinkedUp row. Mimic-only state; Stagehand never reads it.
+          if (sheetClick) sheetClick.selector = baseSheet.replace(/tr:nth-of-type\(\d+\)/, `tr:nth-of-type(${lead.row})`);
+          if (liClick) liClick.selector = baseLi.replace(/div:nth-of-type\(\d+\)/, `div:nth-of-type(${lead.row})`);
+          console.log(`[race] mimic → ${lead.name} (sheet tr${lead.row} · li div${lead.row})`);
+          return mimic.runRound({ messageText: lead.message }, n, broadcast, { breakNow: n === breakAtLead });
+        }),
+      ]);
     } catch (e) {
       console.error("[race] failed:", (e as Error).message);
     } finally {

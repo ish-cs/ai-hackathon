@@ -95,7 +95,33 @@ export class StagehandLane {
     if (!this.sh) throw new Error("StagehandLane.runRound called before open()");
     emit({ kind: "run_start", lane: "stagehand", workflowId: "stagehand", row });
 
-    const page = this.sh.context.pages()[0] ?? (await this.sh.context.newPage());
+    // Reuse the agent's MOST-RECENT tab (it likely ended on a LinkedUp tab it opened) and navigate THAT
+    // back to the sheet; close the rest. Keeping the latest page alive avoids leaving the next
+    // agent.execute bound to a dead tab — the cause of the round-2+ 0-token no-ops.
+    const all = this.sh.context.pages();
+    const page = all[all.length - 1] ?? (await this.sh.context.newPage());
+    for (const p of all) if (p !== page) await p.close().catch(() => {});
+
+    // Keep the live-view attached as the agent churns tabs (sheet → LinkedUp). The feed iframe is pinned to
+    // a tab; when the agent opens/closes tabs the old feed dies ("WebSocket disconnected"). Re-emit the
+    // ACTIVE (newest) tab's feed at lead start AND whenever the agent opens a tab → the panel stays live.
+    const sessionId = this.sh.browserbaseSessionID;
+    const apiKey = process.env.BROWSERBASE_API_KEY;
+    const reattach = async (): Promise<void> => {
+      if (!apiKey || !sessionId) return;
+      try {
+        const links = await new Browserbase({ apiKey }).sessions.debug(sessionId);
+        const tabs = (links as { pages?: Array<{ debuggerFullscreenUrl?: string }> }).pages;
+        const url = tabs?.[tabs.length - 1]?.debuggerFullscreenUrl ?? links.debuggerFullscreenUrl;
+        if (url) emit({ kind: "liveview", lane: "stagehand", url });
+      } catch { /* the feed is cosmetic — never fail a round over it */ }
+    };
+    const onNewTab = (): void => void reattach();
+    // V3Context doesn't type Playwright's event emitter; reach it defensively (no-op if absent) so the
+    // lead-start re-attach below still always runs — that alone keeps the feed off the disconnect dialog.
+    const ctx = this.sh.context as unknown as { on?: (e: string, f: () => void) => void; off?: (e: string, f: () => void) => void };
+    ctx.on?.("page", onNewTab);
+
     let ok = false;
     let message = "";
     let tokensIn = 0;
@@ -103,6 +129,7 @@ export class StagehandLane {
     const start = Date.now();
     try {
       await page.goto(this.cfg.startUrl); // fresh start each round → the agent re-reasons from scratch
+      await reattach(); // attach this lead's feed (the previous lead's tab may have closed)
       const agent = this.sh.agent({ model: MODEL, mode: "dom" });
       const result = await agent.execute({
         instruction: this.cfg.instruction,
@@ -115,6 +142,8 @@ export class StagehandLane {
       tokensOut = result.usage?.output_tokens ?? 0;
     } catch (e) {
       message = (e as Error).message; // a misclick/failure stays in the demo (it helps us); just report it
+    } finally {
+      ctx.off?.("page", onNewTab); // stop following this lead's tab opens
     }
     const ms = Date.now() - start;
 

@@ -153,4 +153,8 @@ export type RunEvent =
   // (human demo + structure()); "running" = one replay round. run = round index.
   | { kind: "metrics"; lane: "stagehand" | "mimic"; run: number;
       phase: "teaching" | "running"; tokensIn: number; tokensOut: number;
-      ms: number; costUsd: number };
+      ms: number; costUsd: number }
+  // Cost Race (/api/race): per-lane wall-clock. "start" when a lane begins its rounds, "stop" when it
+  // finishes them all. Lanes run DECOUPLED (each at its own pace), so the UI's live stopwatch between
+  // start↔stop shows Mimic finishing long before Stagehand. elapsedMs is the final duration on "stop".
+  | { kind: "timer"; lane: "stagehand" | "mimic"; state: "start" | "stop"; elapsedMs?: number };

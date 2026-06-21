@@ -1,8 +1,12 @@
-// The Cost Race "Mimic lane": the CHEAP lane. Replays a workflow that was taught ONCE, deterministically
-// over Browserbase — ~0 LLM tokens on the happy path. It only spends a model when the page changes: on
-// the break round it re-grounds the renamed element by intent (a REAL brain heal), then re-caches the new
-// selector so subsequent rounds are free again. Mirror of runtime/stagehand-lane.ts (open/runRound/close)
-// so /api/race drives both lanes the same way. Self-contained — does NOT touch player.ts.
+// The Cost Race "Mimic lane": the CHEAP lane. Replays a workflow taught ONCE, deterministically over
+// Browserbase — ~0 LLM tokens on the happy path. It only spends a model when the page changes: on the
+// break round it re-grounds the renamed element by intent (a REAL brain heal), then continues. Mirror of
+// runtime/stagehand-lane.ts (open/runRound/close) so /api/race drives both lanes the same way.
+//
+// MULTI-TAB: the faithful demo starts on the LeadSheet (tab 0, opened once in open() so its status fills
+// accumulate across leads), clicks a lead's "Message on LinkedIn" (target=_blank → a LinkedUp popup we
+// adopt as tab 1), switches tabs, and messages there. Tab routing + popup adoption is ported from the
+// proven runtime/player.ts. brain/* is untouched.
 //
 // Token accounting: heal() goes through brain/anthropic.completeJSON, which fires onUsage(); we subscribe
 // for the duration of a round to attribute those (and only those) tokens to this lane's meter.
@@ -36,14 +40,14 @@ export interface MimicRoundResult {
 }
 
 /**
- * One reusable Browserbase session replayed across N rounds. open() once (boots the cloud browser +
- * reuses the warmed Context), runRound() per lead, close() at the end. Deterministic replay → no LLM
- * per round, so the meter stays flat — except the one break round, where it heals once and re-caches.
+ * One reusable Browserbase session replayed across N leads. open() boots the cloud browser + loads the
+ * LeadSheet (tab 0); runRound() replays the multi-tab outreach for one lead; close() at the end. Deterministic
+ * replay → no LLM per lead, so the meter stays flat — except the break lead, where it heals once.
  */
 export class MimicLane {
   private bb: Browserbase | null = null;
   private browser: Browser | null = null;
-  private page: Page | null = null;
+  private sheet: Page | null = null; // tab 0 — the LeadSheet, persists across leads
   private sessionId?: string;
   liveViewUrl?: string;
 
@@ -62,15 +66,15 @@ export class MimicLane {
         viewport: { width: 1280, height: 800 },
         // No advancedStealth — Enterprise-only (403 on Dev). Basic fingerprinting + residential proxy.
         solveCaptchas: true,
-        // Reuse the warmed burner auth; persist:false so concurrent lanes can't corrupt the Context.
         ...(this.cfg.contextId ? { context: { id: this.cfg.contextId, persist: false } } : {}),
       },
     });
     this.sessionId = session.id;
     this.browser = await chromium.connectOverCDP(session.connectUrl);
-    this.page = this.browser.contexts()[0].pages()[0];
-    const links = await this.bb.sessions.debug(session.id);
-    this.liveViewUrl = links.debuggerFullscreenUrl;
+    this.sheet = this.browser.contexts()[0].pages()[0];
+    // Load the LeadSheet ONCE — it stays open across leads so its status cells fill cumulatively.
+    await this.sheet.goto(this.cfg.workflow.startUrl, { timeout: STEP_TIMEOUT * 3 }).catch(() => {});
+    this.liveViewUrl = await this.debugUrl(0);
     return { liveViewUrl: this.liveViewUrl };
   }
 
@@ -80,8 +84,9 @@ export class MimicLane {
     emit: (e: RunEvent) => void,
     opts: { breakNow?: boolean } = {},
   ): Promise<MimicRoundResult> {
-    const page = this.page;
-    if (!page) throw new Error("MimicLane.runRound called before open()");
+    const sheet = this.sheet;
+    if (!sheet) throw new Error("MimicLane.runRound called before open()");
+    const context = sheet.context();
     emit({ kind: "run_start", lane: "mimic", workflowId: this.cfg.workflow.workflowId, row });
 
     const wf = structuredClone(this.cfg.workflow); // fresh selectors each round; a heal mutates the clone
@@ -92,19 +97,72 @@ export class MimicLane {
       tokensOut += u.tokensOut;
     });
 
+    // Fresh start for this lead: drop any LinkedUp tab the previous lead opened, keep the sheet (tab 0).
+    for (const p of context.pages()) if (p !== sheet) await p.close().catch(() => {});
+
+    // Multi-tab routing (ported from player.ts): tab 0 = the sheet; the sheet-click opens LinkedUp, which a
+    // switchTab adopts as tab 1. Single-tab workflows keep every step on tab 0 → unchanged behavior.
+    const pages = new Map<number, Page>([[0, sheet]]);
+    let active: Page = sheet;
+    const followTab = async (tabIndex: number): Promise<void> => {
+      const url = await this.debugUrl(tabIndex);
+      if (url) emit({ kind: "liveview", lane: "mimic", url });
+    };
+    const focusTab = async (tabIndex: number, page: Page): Promise<void> => {
+      active = page;
+      await page.bringToFront().catch(() => {});
+      await followTab(tabIndex);
+    };
+    const ensureTab = async (tabIndex: number, url: string | null): Promise<Page> => {
+      const existing = pages.get(tabIndex);
+      if (existing) return existing;
+      const mapped = new Set(pages.values());
+      let orphan = context.pages().find((pg) => !mapped.has(pg)); // adopt the popup the sheet-click opened
+      if (!orphan) {
+        try {
+          orphan = await context.waitForEvent("page", { timeout: 2000 });
+        } catch {
+          /* no popup — open by URL below */
+        }
+      }
+      const adopt = orphan ?? (await context.newPage());
+      pages.set(tabIndex, adopt);
+      if (!orphan && url) await adopt.goto(url, { timeout: STEP_TIMEOUT * 3 }).catch(() => {});
+      try {
+        await adopt.waitForLoadState("domcontentloaded", { timeout: STEP_TIMEOUT });
+      } catch {
+        /* best effort */
+      }
+      return adopt;
+    };
+
     let ok = true;
     const start = Date.now();
     try {
-      await page.goto(wf.startUrl, { timeout: STEP_TIMEOUT * 3 });
-      // Simulate the redesign BEFORE the steps run, so the recorded selector misses and the heal fires.
-      if (opts.breakNow && this.cfg.breakSpec) {
-        const r = await breakElement(page, this.cfg.breakSpec);
-        emit({ kind: "step", lane: "mimic", result: stepResult(wf, "break", r.ok ? "ok" : "failed", r.detail, 0) });
-      }
+      await focusTab(0, sheet); // begin on the (already-loaded) sheet
 
       for (const step of wf.steps) {
-        const value = valueFor(step, row);
+        const tab = step.tab ?? 0;
         const t0 = Date.now();
+
+        if (step.action === "switchTab") {
+          const p = await ensureTab(tab, step.valueLiteral);
+          await focusTab(tab, p);
+          emit({ kind: "step", lane: "mimic", result: stepResult(wf, `switch:${tab}`, "ok", step.selector || `tab:${tab}`, Date.now() - t0) });
+          continue;
+        }
+
+        const page = pages.get(tab) ?? active;
+        if (page !== active) await focusTab(tab, page);
+        const value = valueFor(step, row);
+
+        // Break: rename the heal target on ITS tab right before its step runs, so the recorded selector
+        // misses and the heal fires. Only on the break lead, only the matching element (the LinkedUp Send).
+        if (opts.breakNow && this.cfg.breakSpec && step.selector === this.cfg.breakSpec.selector) {
+          const r = await breakElement(page, this.cfg.breakSpec);
+          emit({ kind: "step", lane: "mimic", result: stepResult(wf, "break", r.ok ? "ok" : "failed", r.detail, 0) });
+        }
+
         try {
           await execute(page, step, step.selector, value);
           emit({ kind: "step", lane: "mimic", result: stepResult(wf, step.stepId, "ok", step.selector, Date.now() - t0) });
@@ -131,7 +189,19 @@ export class MimicLane {
   async close(): Promise<void> {
     await this.browser?.close().catch(() => {});
     this.browser = null;
-    this.page = null;
+    this.sheet = null;
+  }
+
+  /** Per-tab live-view URL for the UI iframe (Browserbase). Falls back to the session-level URL. */
+  private async debugUrl(tabIndex: number): Promise<string | undefined> {
+    if (!this.bb || !this.sessionId) return undefined;
+    try {
+      const links = await this.bb.sessions.debug(this.sessionId);
+      const tabs = (links as { pages?: Array<{ debuggerFullscreenUrl?: string }> }).pages;
+      return tabs?.[tabIndex]?.debuggerFullscreenUrl ?? links.debuggerFullscreenUrl;
+    } catch {
+      return undefined;
+    }
   }
 }
 
@@ -158,7 +228,7 @@ async function execute(page: Page, step: WorkflowStep, selector: string, value: 
       await page.goto(value ?? step.selector, { timeout: STEP_TIMEOUT * 3 });
       break;
     case "switchTab":
-      break; // single-page race lane — no tab routing
+      break; // handled in runRound (tab routing), never reaches execute
   }
 }
 
@@ -180,7 +250,7 @@ async function tryHeal(
     } catch {
       continue; // still wrong — heal again
     }
-    step.selector = result.newSelector; // re-cache: subsequent rounds use the fixed selector → free again
+    step.selector = result.newSelector; // re-cache within this lead's run
     return true;
   }
   return false;
