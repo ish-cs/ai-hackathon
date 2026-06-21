@@ -9,6 +9,7 @@ import { saveWorkflow, getWorkflow, listWorkflows, getHistory, saveTrace } from 
 import { Recorder } from "./recorder";
 import { replay, closeLiveBrowsers } from "./player";
 import { stripSwitchTabs, applyTabs, breakForDemo, mergeHeal } from "./multitab";
+import { cost, type RaceEvent } from "./metrics";
 import { initSentry } from "./sentry";
 
 initSentry();
@@ -31,7 +32,7 @@ wss.on("connection", (ws) => {
   clients.add(ws);
   ws.on("close", () => clients.delete(ws));
 });
-function broadcast(event: RunEvent): void {
+function broadcast(event: RunEvent | RaceEvent): void {
   const msg = JSON.stringify(event);
   for (const ws of clients) if (ws.readyState === WebSocket.OPEN) ws.send(msg);
 }
@@ -142,6 +143,44 @@ app.post("/api/replay", async (req, res) => {
   ]);
 
   res.json({ control: controlOk, healing: healingOk });
+});
+
+// ---- Cost race (MOCKED metrics; the real Stagehand lane lands later in runtime/stagehand-lane.ts) ----
+// Scripts a Mimic-vs-Stagehand race over the WS so ck's cost-race UI is demoable now. N rounds, break
+// at round K: Mimic heals ONCE (small cost) + re-caches; Stagehand re-reasons full price every run.
+const RACE_ROUNDS = 4;
+const RACE_BREAK_AT = 3;
+const jitter = (base: number, pct = 0.12) => Math.round(base * (1 + (Math.random() * 2 - 1) * pct));
+
+app.post("/api/race", (_req, res) => {
+  res.json({ ok: true, rounds: RACE_ROUNDS, breakAt: RACE_BREAK_AT, mock: true });
+
+  const metric = (
+    lane: "stagehand" | "mimic",
+    run: number,
+    phase: "teaching" | "running",
+    tIn: number,
+    tOut: number,
+    ms: number,
+  ): void => broadcast({ kind: "metrics", lane, run, phase, tokensIn: tIn, tokensOut: tOut, ms, costUsd: cost(tIn, tOut) });
+
+  let t = 0;
+  const at = (ms: number, fn: () => void): void => void setTimeout(fn, (t += ms));
+
+  // Teaching (run 0): Mimic pays once to compile the demonstration; Stagehand has no setup.
+  at(300, () => metric("mimic", 0, "teaching", jitter(3800), jitter(700), jitter(4200)));
+  at(150, () => metric("stagehand", 0, "teaching", 0, 0, 0));
+
+  // Running rounds: Stagehand pays full LLM cost every run; Mimic ~0, except one heal at the break.
+  for (let r = 1; r <= RACE_ROUNDS; r++) {
+    const isBreak = r === RACE_BREAK_AT;
+    at(1500, () => metric("stagehand", r, "running", jitter(5200), jitter(900), jitter(22000)));
+    at(250, () =>
+      isBreak
+        ? metric("mimic", r, "running", jitter(1400), jitter(250), jitter(3500)) // heal once + re-cache
+        : metric("mimic", r, "running", 0, 0, jitter(1200)),                      // deterministic replay
+    );
+  }
 });
 
 const PORT = Number(process.env.PORT ?? 3000);
