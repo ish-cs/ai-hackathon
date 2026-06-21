@@ -1,5 +1,5 @@
 import { type Page } from "playwright";
-import type { DataRow, RunEvent, StepResult, Workflow, WorkflowStep, HealResult } from "../shared/types";
+import type { DataRow, Lane, RunEvent, StepResult, Workflow, WorkflowStep, HealResult } from "../shared/types";
 import { openBrowser, liveViewForTab, type OpenedBrowser } from "./browser";
 import { heal } from "../brain/heal";
 import { captureFailure } from "./sentry";
@@ -23,7 +23,10 @@ export async function closeLiveBrowsers(): Promise<void> {
 }
 
 /** Banner across the top of each window so it's unmistakably the normal vs the self-healing agent. */
-export async function injectLaneLabel(page: Page, lane: "control" | "healing"): Promise<void> {
+export async function injectLaneLabel(page: Page, lane: Lane): Promise<void> {
+  // Race lanes (mimic/stagehand/record) get no in-window control/healing banner — the cost-race UI
+  // labels them externally; only the original split-screen demo draws this.
+  if (lane !== "control" && lane !== "healing") return;
   const healing = lane === "healing";
   await page
     .evaluate((h: boolean) => {
@@ -72,10 +75,12 @@ export async function markLaneResult(page: Page, ok: boolean): Promise<void> {
 export interface ReplayOpts {
   /** false = the "dead" control agent (no re-grounding). true = our self-healing agent. */
   heal: boolean;
-  lane: "healing" | "control";
+  lane: Lane;
   emit: (e: RunEvent) => void;
   /** Called after a successful heal so the caller can bump version + persist to Redis. */
   onHeal?: (wf: Workflow) => Promise<void>;
+  /** Browserbase only: reuse a warmed Context (e.g. the Mimic lane's logged-in burner LinkedIn). */
+  contextId?: string;
 }
 
 function valueFor(step: WorkflowStep, row: DataRow): string | null {
@@ -118,7 +123,7 @@ async function liveDom(page: Page): Promise<string> {
 
 export async function replay(wf: Workflow, row: DataRow, opts: ReplayOpts): Promise<boolean> {
   opts.emit({ kind: "run_start", lane: opts.lane, workflowId: wf.workflowId, row });
-  const opened = await openBrowser({ lane: opts.lane });
+  const opened = await openBrowser({ lane: opts.lane, contextId: opts.contextId });
   liveBrowsers.add(opened); // reaped on the next run by closeLiveBrowsers() — local window OR cloud session
   const context = opened.page.context();
 
