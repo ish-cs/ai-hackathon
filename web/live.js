@@ -213,7 +213,11 @@
       headers: { "content-type": "application/json" },
       body: JSON.stringify(body || {}),
     });
-    return res.json();
+    const data = await res.json().catch(() => ({}));
+    // Surface server failures instead of swallowing them — a fire-and-forget call
+    // that 500s used to look like "nothing happened".
+    if (!res.ok) throw new Error(data.error || `${path} failed (${res.status})`);
+    return data;
   }
 
   function wireControls() {
@@ -221,13 +225,40 @@
     const stopBtn = $("[data-record-stop]");
     const runBtn = $("[data-run]");
     const breakBtn = $("[data-run-break]");
+    const flash = (btn, text, revertTo, ms = 4000) => {
+      if (!btn) return;
+      btn.textContent = text;
+      if (revertTo != null) setTimeout(() => { btn.textContent = revertTo; }, ms);
+    };
 
-    if (recBtn) recBtn.onclick = () => api("/api/record/start", { url: location.origin + "/mock" });
+    if (recBtn) recBtn.onclick = async () => {
+      recBtn.disabled = true;
+      try {
+        await api("/api/record/start", { url: location.origin + "/mock" });
+        recBtn.textContent = "● Recording — demo in the pop-up window";
+        // Make it obvious which button ends the recording.
+        if (stopBtn) stopBtn.textContent = "■ Stop & build workflow";
+      } catch (e) {
+        flash(recBtn, "⚠ " + e.message, "● Record");
+      } finally {
+        recBtn.disabled = false;
+      }
+    };
     if (stopBtn) stopBtn.onclick = async () => {
-      const task = ($("[data-task]") || {}).value || "task";
-      const trace = await api("/api/record/stop", { task });
-      const wf = await api("/api/workflows", trace);
-      if (wf && wf.workflowId) workflowId = wf.workflowId;
+      stopBtn.disabled = true;
+      stopBtn.textContent = "… building workflow";
+      try {
+        const task = ($("[data-task]") || {}).value || "task";
+        const trace = await api("/api/record/stop", { task });
+        const wf = await api("/api/workflows", trace);
+        if (wf && wf.workflowId) workflowId = wf.workflowId;
+        flash(stopBtn, "✓ workflow built", "■ Build workflow", 3000);
+      } catch (e) {
+        flash(stopBtn, "⚠ " + e.message, "■ Build workflow");
+      } finally {
+        stopBtn.disabled = false;
+        if (recBtn) recBtn.textContent = "● Record";
+      }
     };
     const run = (breakSite) => {
       const row = {

@@ -123,6 +123,17 @@
     @keyframes mimicGlow{0%,100%{box-shadow:inset 0 0 0 1px rgba(225,224,204,.45);}50%{box-shadow:inset 0 0 0 1px rgba(225,224,204,.9),0 0 40px rgba(225,224,204,.12);}}
     @keyframes mimicBlink{0%,49%{opacity:1;}50%,100%{opacity:.15;}}
     @keyframes mimicDrift{0%{transform:translate(0,0);}100%{transform:translate(-4%,-4%);}}
+    /* hero: slow cinematic push toward the figure on the cliff */
+    @keyframes heroZoom{0%{transform:scale(1.08);}100%{transform:scale(1.16);}}
+    /* real hover states (the original style-hover attrs were inert after un-bundling) */
+    #mimic-lp nav a{position:relative;}
+    #mimic-lp nav a:hover{color:#E1E0CC!important;}
+    #mimic-lp a.group:hover{gap:16px;}
+    #mimic-lp section#get a[href="#how"]:hover{gap:16px;}
+    #mimic-lp [data-card]{transition:opacity .8s cubic-bezier(.22,1,.36,1),transform .4s cubic-bezier(.22,1,.36,1),box-shadow .4s ease,border-color .4s ease;}
+    #mimic-lp [data-card]:hover{transform:translateY(-5px)!important;box-shadow:0 22px 60px rgba(0,0,0,.55);border-color:rgba(225,224,204,.2);}
+    #mimic-lp [data-card] a[data-nav]:hover{color:#fff;}
+    #mimic-lp [data-card] a[data-nav]:hover svg{transform:translateX(4px) rotate(-45deg);transition:transform .3s ease;}
   </style>
 </helmet>
 <div id="mimic-lp" style="background:#000;color:#E1E0CC;font-family:'Almarai',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-weight:400;overflow:hidden;-webkit-font-smoothing:antialiased;">
@@ -130,9 +141,11 @@
   <!-- ============ HERO ============ -->
   <section style="height:100svh;min-height:640px;padding:14px;">
     <div style="position:relative;width:100%;height:100%;border-radius:28px;overflow:hidden;background:radial-gradient(120% 120% at 70% 10%,#1a1916 0%,#0a0a08 55%,#000 100%);">
-      <video autoplay="" loop="" muted="" playsinline="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.5;">
+      <video autoplay="" loop="" muted="" playsinline="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:1;transform-origin:48% 49%;animation:heroZoom 26s ease-in-out infinite alternate;will-change:transform;filter:contrast(1.07) saturate(1.1) brightness(1.03);">
         <source src="assets/demo.mp4" type="video/mp4">
       </video>
+      <!-- gentle vignette: focus on the figure + keep edges/text legible -->
+      <div style="position:absolute;inset:0;background:radial-gradient(56% 60% at 48% 48%,rgba(0,0,0,0) 0%,rgba(0,0,0,0) 56%,rgba(5,5,4,.44) 100%);pointer-events:none;z-index:1;"></div>
       <div data-noise="hero" style="position:absolute;inset:-20%;opacity:.55;mix-blend-mode:overlay;pointer-events:none;animation:mimicDrift 8s steps(6) infinite alternate;"></div>
       <div style="position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,.45) 0%,rgba(0,0,0,.12) 30%,rgba(0,0,0,.35) 70%,rgba(0,0,0,.82) 100%);pointer-events:none;"></div>
 
