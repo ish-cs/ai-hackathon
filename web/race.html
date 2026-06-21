@@ -34,6 +34,11 @@
       .half.mimic .counter .num { color:var(--mimic); }
       .counter .cap { font-size:11px; color:var(--dim); text-transform:uppercase; letter-spacing:.06em; }
       .counter .cum { font-family:ui-monospace,monospace; font-size:12px; color:var(--dim); }
+      .counter .time { font-family:ui-monospace,monospace; font-size:22px; font-weight:800; color:var(--dim);
+                       font-variant-numeric:tabular-nums; }
+      .counter .time.run { color:var(--ink); }
+      .half.stage .counter .time.done { color:var(--stage); }
+      .half.mimic .counter .time.done { color:var(--mimic); }
       canvas { width:100%; height:130px; display:block; }
     </style>
   </head>
@@ -45,6 +50,7 @@
         <div class="window" id="win-stagehand"><div class="ph">live view connects when the race starts</div></div>
         <div class="counter"><span class="num" id="cur-stagehand">0</span><span class="cap">tokens · this run</span></div>
         <div class="counter"><span class="cum" id="cum-stagehand">Σ 0 tok · $0.0000</span></div>
+        <div class="counter"><span class="time" id="timer-stagehand">⏱ 0.0s</span></div>
         <canvas id="g-stagehand"></canvas>
       </div>
       <div class="half mimic">
@@ -52,6 +58,7 @@
         <div class="window" id="win-mimic"><div class="ph">live view connects when the race starts</div></div>
         <div class="counter"><span class="num" id="cur-mimic">0</span><span class="cap">tokens · this run</span></div>
         <div class="counter"><span class="cum" id="cum-mimic">Σ 0 tok · $0.0000</span></div>
+        <div class="counter"><span class="time" id="timer-mimic">⏱ 0.0s</span></div>
         <canvas id="g-mimic"></canvas>
       </div>
     </div>
