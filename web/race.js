@@ -12,9 +12,10 @@ const S = {
   mimic: { cum: 0, cumCost: 0, points: [{ cum: 0 }] },
 };
 
-// Per-lane stopwatch: setInterval handle while a lane runs; lanesDone re-enables Start once both stop.
+// Per-lane stopwatch: setInterval handle while a lane runs.
 const timers = { stagehand: null, mimic: null };
-let lanesDone = 0;
+// Manual-stepping session state, set by /api/race/start, advanced by /api/race/step.
+let raceRounds = 0, raceBreakAt = 0;
 
 function reset() {
   for (const l of LANES) {
@@ -26,8 +27,14 @@ function reset() {
     t.textContent = "⏱ 0.0s";
     t.classList.remove("run", "done");
   }
-  lanesDone = 0;
+  setProgress(0, raceRounds);
   drawAll();
+}
+
+// Drive the progress bar + counter from runs-done / total.
+function setProgress(run, rounds) {
+  $("pfill").style.width = rounds ? `${(run / rounds) * 100}%` : "0";
+  $("pcount").textContent = `${run} / ${rounds}`;
 }
 
 function bump(el) {
@@ -82,7 +89,7 @@ function onTimer(ev) {
     el.textContent = `⏱ ${((ev.elapsedMs ?? 0) / 1000).toFixed(1)}s ✓`;
     el.classList.remove("run");
     el.classList.add("done");
-    if (++lanesDone >= LANES.length) $("start").disabled = false; // both finished → allow another race
+    // Manual mode: the #step button governs flow, so timers no longer re-enable Start.
   }
 }
 
@@ -130,17 +137,57 @@ ws.onmessage = (e) => {
   else if (ev.kind === "timer" && S[ev.lane]) onTimer(ev);
 };
 
+// Label the step button for the round about to run; flag the break round so the presenter sees it coming.
+function labelStep(nextRound) {
+  const step = $("step");
+  const isBreak = nextRound === raceBreakAt;
+  step.textContent = isBreak ? `Run round ${nextRound} ⚠ break` : `Run round ${nextRound}`;
+  step.classList.toggle("break", isBreak);
+}
+
+// Start: open both cloud lanes once, then hand control to the step button. Re-clicking restarts cleanly.
 $("start").onclick = async () => {
-  reset();
-  const btn = $("start");
-  btn.disabled = true;
+  const start = $("start"), step = $("step");
+  start.disabled = true;
+  step.disabled = true;
   try {
-    await fetch("/api/race", { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
-    // Re-enabled when BOTH lanes emit timer "stop" (see onTimer). Safety net if a lane errors mid-race
-    // and never stops: force re-enable after a generous ceiling so Start can't get stuck disabled.
-    setTimeout(() => (btn.disabled = false), 300_000);
-  } catch {
-    btn.disabled = false;
+    const r = await fetch("/api/race/start", { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || "start failed");
+    raceRounds = j.rounds;
+    raceBreakAt = j.breakAt;
+    reset();
+    start.textContent = "↻ Restart";
+    labelStep(1);
+    step.disabled = raceRounds === 0;
+  } catch (e) {
+    console.error("[race] start:", e.message);
+    start.textContent = "▶ Start race";
+  } finally {
+    start.disabled = false;
+  }
+};
+
+// Step: run exactly one lead on both lanes, advance the progress bar, then wait for the next click.
+$("step").onclick = async () => {
+  const step = $("step");
+  step.disabled = true;
+  try {
+    const r = await fetch("/api/race/step", { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || "step failed");
+    setProgress(j.run, j.rounds);
+    if (j.done) {
+      step.textContent = "✓ Race complete";
+      step.classList.remove("break");
+      step.disabled = true;
+    } else {
+      labelStep(j.run + 1);
+      step.disabled = false;
+    }
+  } catch (e) {
+    console.error("[race] step:", e.message);
+    step.disabled = false;
   }
 };
 

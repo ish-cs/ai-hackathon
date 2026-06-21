@@ -33,6 +33,9 @@ export interface StagehandLaneConfig {
   stealth?: boolean;
   /** Cap the agent's steps per round. Default 25. */
   maxSteps?: number;
+  /** Demo "site redesign": on the break round, rename this element so the agent must re-find it by intent
+   *  (the SAME rename Mimic heals — so BOTH lanes hit the break, Stagehand at full re-reasoning cost). */
+  breakSpec?: { selector: string; newId?: string; newText?: string };
 }
 
 export interface StagehandRoundResult {
@@ -75,6 +78,11 @@ export class StagehandLane {
             browserbaseSessionCreateParams: {
               projectId,
               proxies: this.cfg.proxies ?? true, // residential proxy → looks like a real user
+              // Manual stepping leaves the session idle while the presenter narrates between rounds. Without
+              // keepAlive, Browserbase ends the session on idle (CDP socket-close 1006) and round 3+ crashes
+              // ("Cannot read … 'pages'"). keepAlive holds it open; timeout caps total session length.
+              keepAlive: true,
+              timeout: 3600,
               browserSettings: {
                 viewport: { width: 1280, height: 800 },
                 // advancedStealth (Verified mode) is ENTERPRISE-only → 403 on Dev/Scale. Only when enabled.
@@ -91,7 +99,7 @@ export class StagehandLane {
     return { liveViewUrl: this.liveViewUrl };
   }
 
-  async runRound(row: DataRow, run: number, emit: (e: RunEvent) => void): Promise<StagehandRoundResult> {
+  async runRound(row: DataRow, run: number, emit: (e: RunEvent) => void, opts: { breakNow?: boolean } = {}): Promise<StagehandRoundResult> {
     if (!this.sh) throw new Error("StagehandLane.runRound called before open()");
     emit({ kind: "run_start", lane: "stagehand", workflowId: "stagehand", row });
 
@@ -130,6 +138,23 @@ export class StagehandLane {
     try {
       await page.goto(this.cfg.startUrl); // fresh start each round → the agent re-reasons from scratch
       await reattach(); // attach this lead's feed (the previous lead's tab may have closed)
+
+      // Break round: rename the Send button so the agent can't rely on its prior phrasing. #li-send is NOT
+      // in the DOM at load (it appears only after the compose dock opens), so a one-shot rename would miss —
+      // a MutationObserver renames it the instant it appears, and re-applies if the dock re-renders. Keeping
+      // the same element (id+text only) preserves its click handler; the agent just pays to re-find "Send now".
+      if (opts.breakNow && this.cfg.breakSpec) {
+        await page.evaluate(({ selector, newId, newText }) => {
+          const rename = (): void => {
+            const el = document.querySelector(selector) as HTMLElement | null;
+            if (!el) return;
+            if (newId) el.id = newId;
+            if (newText) el.textContent = newText;
+          };
+          rename();
+          new MutationObserver(rename).observe(document.documentElement, { childList: true, subtree: true });
+        }, this.cfg.breakSpec);
+      }
       const agent = this.sh.agent({ model: MODEL, mode: "dom" });
       const result = await agent.execute({
         instruction: this.cfg.instruction,

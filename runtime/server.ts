@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import express from "express";
 import { WebSocketServer, WebSocket } from "ws";
-import type { DataRow, RawTrace, RunEvent } from "../shared/types";
+import type { DataRow, RawTrace, RunEvent, WorkflowStep } from "../shared/types";
 import { structure } from "../brain/structure";
 import { lastUsage } from "../brain/anthropic";
 import { saveWorkflow, getWorkflow, listWorkflows, getHistory, saveTrace } from "../brain/store";
@@ -162,21 +162,52 @@ app.post("/api/replay", async (req, res) => {
 // The LeadSheet the race scans top-down (mirrors the first rows of mock-public/leads.js + their statuses).
 // status: "none" = not contacted (the race messages these); "msg"/"reply" = already contacted (skipped).
 // row = the lead's position in the LinkedUp list (leads.js order) → the Mimic click retarget targets it.
+// First FOUR uncontacted → a 4-round race: rounds 1-2 normal, round 3 the break, round 4 the recovery.
 const DEMO_LEADS = [
   { name: "Sarah Chen", role: "VP Engineering", company: "Acme", status: "none" },
-  { name: "Marcus Lee", role: "Head of Product", company: "Globex", status: "msg" },
-  { name: "Priya Patel", role: "CTO", company: "Initech", status: "reply" },
+  { name: "Marcus Lee", role: "Head of Product", company: "Globex", status: "none" },
+  { name: "Priya Patel", role: "CTO", company: "Initech", status: "none" },
   { name: "Diego Alvarez", role: "Director of Sales", company: "Umbrella", status: "none" },
-  { name: "Hana Suzuki", role: "Founder", company: "Hooli", status: "none" },
+  { name: "Hana Suzuki", role: "Founder", company: "Hooli", status: "msg" },
 ].map((l, i) => ({ ...l, row: i + 1, message: `Hi ${l.name}, I came across your work as ${l.role} at ${l.company} and would love to connect about what your team is building.` }));
 
-app.post("/api/race", async (req, res) => {
-  const body = (req.body ?? {}) as { workflowId?: string; row?: DataRow };
+// Manual stepping: Start opens both cloud lanes ONCE; each "Run round" click runs ONE lead on BOTH lanes
+// and then waits. The presenter paces the demo on stage — narrate the cost gap, the break, the heal — which
+// an internal auto-loop makes impossible. The session below holds the two open lanes between clicks.
+interface ActiveRace {
+  stagehand: StagehandLane;
+  mimic: MimicLane;
+  queue: typeof DEMO_LEADS;
+  // Recorded clicks re-pointed per lead (live refs into workflow.steps). resultClick = the LinkedUp
+  // "Message" button (#li-results … div:nth-of-type(N)); sheetRowClick = the LeadSheet row (sheet workflow
+  // only). Keyed off the selector, not the tab, so both the parody (LinkedUp-only) and sheet flows work.
+  resultClick?: WorkflowStep;
+  sheetRowClick?: WorkflowStep;
+  baseResult: string;
+  baseSheetRow: string;
+  run: number; // leads contacted so far
+  breakAt: number; // round whose LinkedUp Send gets renamed → Mimic heals
+  busy: boolean; // a round is mid-flight (reject overlapping clicks)
+}
+let activeRace: ActiveRace | null = null;
+
+async function closeRace(): Promise<void> {
+  if (!activeRace) return;
+  const r = activeRace;
+  activeRace = null; // null FIRST so a failing close can't strand the session
+  await Promise.all([r.stagehand.close(), r.mimic.close()]).catch(() => {});
+}
+
+// Open both lanes once, emit the teaching (run-0) baseline, and park the session ready to step.
+app.post("/api/race/start", async (req, res) => {
+  const body = (req.body ?? {}) as { workflowId?: string };
   const workflowId = body.workflowId ?? process.env.DEMO_WORKFLOW_ID;
   if (!workflowId) return res.status(400).json({ error: "no workflowId (set DEMO_WORKFLOW_ID or pass workflowId)" });
   const history = await getHistory(workflowId);
   const workflow = history.length ? history[0].wf : await getWorkflow(workflowId);
   if (!workflow) return res.status(404).json({ error: "workflow not found" });
+
+  await closeRace(); // never leak a prior cloud session
 
   const instruction = process.env.STAGEHAND_INSTRUCTION ?? workflow.task;
   const startUrl = process.env.DEMO_START_URL ?? workflow.startUrl;
@@ -186,71 +217,100 @@ app.post("/api/race", async (req, res) => {
 
   // The race scans the LeadSheet top-down and contacts every "not contacted" row.
   const queue = DEMO_LEADS.filter((l) => l.status === "none");
-  const breakAtLead = Math.min(2, queue.length); // break the LinkedUp Send on the 2nd lead → heal, then recover
+  const breakAt = Math.min(3, queue.length); // break the LinkedUp Send on the 3rd lead → heal, then recover
 
-  res.json({ ok: true, rounds: queue.length, breakAt: breakAtLead });
+  // stealth:false — advancedStealth/Verified is Enterprise-only (403 on our Dev plan). We run basic
+  // fingerprinting + residential proxy, which held up through Context warming + reuse.
+  const stagehand = new StagehandLane({ startUrl, instruction, contextId: process.env.STAGEHAND_CONTEXT_ID, stealth: false, maxSteps: 18, breakSpec });
+  const mimic = new MimicLane({ workflow, contextId: process.env.MIMIC_CONTEXT_ID, breakSpec });
+  try {
+    const [s, m] = await Promise.all([stagehand.open(), mimic.open()]);
+    if (s.liveViewUrl) broadcast({ kind: "liveview", lane: "stagehand", url: s.liveViewUrl });
+    if (m.liveViewUrl) broadcast({ kind: "liveview", lane: "mimic", url: m.liveViewUrl });
 
-  // Orchestrate async; stream every event over the WS. A lane failure is logged, never crashes the server
-  // (a Stagehand misclick/timeout is fine — it only strengthens the cost contrast).
-  void (async () => {
-    // stealth:false — advancedStealth/Verified is Enterprise-only (403 on our Dev plan). We run basic
-    // fingerprinting + residential proxy, which held up through Context warming + reuse.
-    const stagehand = new StagehandLane({ startUrl, instruction, contextId: process.env.STAGEHAND_CONTEXT_ID, stealth: false, maxSteps: 18 });
-    const mimic = new MimicLane({ workflow, contextId: process.env.MIMIC_CONTEXT_ID, breakSpec });
-    try {
-      const [s, m] = await Promise.all([stagehand.open(), mimic.open()]);
-      if (s.liveViewUrl) broadcast({ kind: "liveview", lane: "stagehand", url: s.liveViewUrl });
-      if (m.liveViewUrl) broadcast({ kind: "liveview", lane: "mimic", url: m.liveViewUrl });
-
-      // Teaching (run 0): Mimic's ONE-TIME cost = the structure() call that compiled the demonstration,
-      // captured + persisted on the workflow at record time (brain side). Emitting it starts Mimic's
-      // meter elevated — the honest "paid once, then free". Stagehand has no teaching → starts at 0.
-      const teach = workflow as { teachingTokensIn?: number; teachingTokensOut?: number };
-      if (teach.teachingTokensIn != null) {
-        const tin = teach.teachingTokensIn, tout = teach.teachingTokensOut ?? 0;
-        broadcast({ kind: "metrics", lane: "mimic", run: 0, phase: "teaching", tokensIn: tin, tokensOut: tout, ms: 0, costUsd: cost(tin, tout) });
-      }
-      broadcast({ kind: "metrics", lane: "stagehand", run: 0, phase: "teaching", tokensIn: 0, tokensOut: 0, ms: 0, costUsd: 0 });
-
-      // Mimic replays the recorded multi-tab flow. Two clicks are row-dependent — the sheet's "Message on
-      // LinkedIn" link (tab 0) and the LinkedUp Message button (tab 1). Both render leads in the same order,
-      // so re-point each to the lead's row index per lead (sheet shows all leads; LinkedUp shows the top 20).
-      const sheetClick = workflow.steps.find((st) => st.action === "click" && (st.tab ?? 0) === 0);
-      const liClick = workflow.steps.find((st) => st.action === "click" && st.tab === 1);
-      const baseSheet = sheetClick?.selector ?? "";
-      const baseLi = liClick?.selector ?? "";
-
-      // DECOUPLED lanes: each walks the uncontacted queue at its OWN pace (no per-lead barrier), so the
-      // per-lane timer + live-view fill independently — Mimic races through while Stagehand crawls.
-      const runLane = async (lane: "stagehand" | "mimic", body: (lead: (typeof queue)[number], n: number) => Promise<unknown>): Promise<void> => {
-        broadcast({ kind: "timer", lane, state: "start" });
-        const t0 = Date.now();
-        for (let n = 1; n <= queue.length; n++) await body(queue[n - 1], n);
-        broadcast({ kind: "timer", lane, state: "stop", elapsedMs: Date.now() - t0 });
-      };
-
-      await Promise.all([
-        runLane("stagehand", async (lead, n) => {
-          console.log(`[race] stagehand → ${lead.name}`);
-          const r = await stagehand.runRound({ name: lead.name, role: lead.role, company: lead.company }, n, broadcast);
-          console.log(`[race] stagehand ${lead.name} done: ok=${r.ok} tokIn=${r.tokensIn} msg=${String(r.message).slice(0, 140)}`);
-          return r;
-        }),
-        runLane("mimic", (lead, n) => {
-          // Mutate both source selectors right before runRound clones them (sync until its first await) → the
-          // clone replays this lead's sheet row + LinkedUp row. Mimic-only state; Stagehand never reads it.
-          if (sheetClick) sheetClick.selector = baseSheet.replace(/tr:nth-of-type\(\d+\)/, `tr:nth-of-type(${lead.row})`);
-          if (liClick) liClick.selector = baseLi.replace(/div:nth-of-type\(\d+\)/, `div:nth-of-type(${lead.row})`);
-          console.log(`[race] mimic → ${lead.name} (sheet tr${lead.row} · li div${lead.row})`);
-          return mimic.runRound({ messageText: lead.message }, n, broadcast, { breakNow: n === breakAtLead });
-        }),
-      ]);
-    } catch (e) {
-      console.error("[race] failed:", (e as Error).message);
-    } finally {
-      await Promise.all([stagehand.close(), mimic.close()]);
+    // Teaching (run 0): Mimic's ONE-TIME cost = the structure() call that compiled the demonstration,
+    // captured + persisted on the workflow at record time. Emitting it starts Mimic's meter elevated — the
+    // honest "paid once, then free". Stagehand has no teaching → starts at 0.
+    const teach = workflow as { teachingTokensIn?: number; teachingTokensOut?: number };
+    if (teach.teachingTokensIn != null) {
+      const tin = teach.teachingTokensIn, tout = teach.teachingTokensOut ?? 0;
+      broadcast({ kind: "metrics", lane: "mimic", run: 0, phase: "teaching", tokensIn: tin, tokensOut: tout, ms: 0, costUsd: cost(tin, tout) });
     }
-  })();
+    broadcast({ kind: "metrics", lane: "stagehand", run: 0, phase: "teaching", tokensIn: 0, tokensOut: 0, ms: 0, costUsd: 0 });
+
+    // Identify the row-dependent clicks by what they target (not tab #) so this works for the LinkedUp-only
+    // parody AND the multi-tab sheet flow. Both list leads in the same order → re-point per lead's row.
+    const resultClick = workflow.steps.find((st) => st.action === "click" && /#li-results/.test(st.selector ?? ""));
+    const sheetRowClick = workflow.steps.find((st) => st.action === "click" && /tr:nth-of-type/.test(st.selector ?? ""));
+    activeRace = {
+      stagehand, mimic, queue, resultClick, sheetRowClick,
+      baseResult: resultClick?.selector ?? "",
+      baseSheetRow: sheetRowClick?.selector ?? "",
+      run: 0, breakAt, busy: false,
+    };
+    res.json({ ok: true, rounds: queue.length, breakAt });
+  } catch (e) {
+    await Promise.all([stagehand.close(), mimic.close()]).catch(() => {});
+    console.error("[race] start failed:", (e as Error).message);
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+// Run exactly ONE lead on BOTH lanes, then wait for the next click. Coupled (both advance together) so the
+// presenter narrates the same lead side by side; per-lane timers still report each lane's real elapsed time.
+app.post("/api/race/step", async (_req, res) => {
+  const r = activeRace;
+  if (!r) return res.status(400).json({ error: "no active race — POST /api/race/start first" });
+  if (r.busy) return res.status(409).json({ error: "a round is still running" });
+  if (r.run >= r.queue.length) {
+    await closeRace();
+    return res.json({ run: r.run, rounds: r.queue.length, breakAt: r.breakAt, brokeThisRound: false, done: true });
+  }
+
+  r.busy = true;
+  const n = r.run + 1;
+  const lead = r.queue[r.run];
+  const brokeThisRound = n === r.breakAt;
+
+  // Per-lane stopwatch: broadcast start/stop around each lane's round so the UI ticks live then freezes ✓.
+  const timed = async <T>(lane: "stagehand" | "mimic", fn: () => Promise<T>): Promise<T> => {
+    broadcast({ kind: "timer", lane, state: "start" });
+    const t0 = Date.now();
+    try {
+      return await fn();
+    } finally {
+      broadcast({ kind: "timer", lane, state: "stop", elapsedMs: Date.now() - t0 });
+    }
+  };
+
+  // Lanes are independent: a Stagehand crash (e.g. its cloud session expired during a long narration pause)
+  // must NOT block Mimic or stall the race. allSettled → both lanes attempted, then advance regardless.
+  const [sRes, mRes] = await Promise.allSettled([
+    timed("stagehand", async () => {
+      console.log(`[race] stagehand → ${lead.name}${brokeThisRound ? " (BREAK)" : ""}`);
+      const sr = await r.stagehand.runRound({ name: lead.name, role: lead.role, company: lead.company }, n, broadcast, { breakNow: brokeThisRound });
+      console.log(`[race] stagehand ${lead.name} done: ok=${sr.ok} tokIn=${sr.tokensIn}`);
+      return sr;
+    }),
+    timed("mimic", () => {
+      // Mutate the source selectors right before runRound clones them (sync until its first await) → the
+      // clone messages THIS lead's row. Only the FIRST div:nth-of-type (the result index) is rewritten.
+      if (r.resultClick) r.resultClick.selector = r.baseResult.replace(/div:nth-of-type\(\d+\)/, `div:nth-of-type(${lead.row})`);
+      if (r.sheetRowClick) r.sheetRowClick.selector = r.baseSheetRow.replace(/tr:nth-of-type\(\d+\)/, `tr:nth-of-type(${lead.row})`);
+      console.log(`[race] mimic → ${lead.name} (li div${lead.row})${brokeThisRound ? " (BREAK)" : ""}`);
+      // Row key MUST match the workflow's parameter name ("messageBody") or valueFor() returns undefined
+      // and the compose box fills empty. (This is the long-standing DataRow↔param-name footgun.)
+      return r.mimic.runRound({ messageBody: lead.message }, n, broadcast, { breakNow: brokeThisRound });
+    }),
+  ]);
+  if (sRes.status === "rejected") console.error("[race] stagehand round failed:", String(sRes.reason).slice(0, 160));
+  if (mRes.status === "rejected") console.error("[race] mimic round failed:", String(mRes.reason).slice(0, 160));
+  r.run = n; // the round was attempted on both lanes → advance so the presenter can keep stepping
+  r.busy = false;
+
+  const done = r.run >= r.queue.length;
+  if (done) await closeRace();
+  res.json({ run: r.run, rounds: r.queue.length, breakAt: r.breakAt, brokeThisRound, done });
 });
 
 const PORT = Number(process.env.PORT ?? 3000);
