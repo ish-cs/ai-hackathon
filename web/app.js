@@ -197,7 +197,9 @@ $("run-break").onclick = () => run(true);
     if ($("wf").value) return;
     const wfs = await (await fetch("/api/workflows")).json();
     if (Array.isArray(wfs) && wfs.length) {
-      const wf = wfs[0];
+      // Prefer the multi-tab (LinkedIn outreach) workflow so the headline demo loads deterministically,
+      // even though Redis may hold many saved workflows; fall back to the first.
+      const wf = wfs.find((w) => (w.steps || []).some((s) => s.action === "switchTab")) ?? wfs[0];
       $("wf").value = wf.workflowId;
       renderParams(wf.parameters);
       log(`[workflow] auto-loaded ${wf.workflowId} — ${wf.steps.length} steps, ${wf.parameters.length} params${wfs.length > 1 ? ` (${wfs.length} saved; paste another id to switch)` : ""}`);

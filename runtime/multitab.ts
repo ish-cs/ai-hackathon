@@ -18,6 +18,14 @@ export function applyTabs(workflow: Workflow, trace: RawTrace): Workflow {
   const hasSwitch = trace.actions.some((a) => a.type === "switchTab");
   const nonSwitch = trace.actions.filter((a) => a.type !== "switchTab");
 
+  // A multi-tab recording that doesn't align 1:1 with structure()'s steps would lose its tabs SILENTLY
+  // and become a broken single-page workflow — warn loudly so it's caught, not shipped.
+  if (hasSwitch && workflow.steps.length !== nonSwitch.length) {
+    console.warn(
+      `[multitab] structure() returned ${workflow.steps.length} steps for ${nonSwitch.length} non-switchTab ` +
+        `actions — cannot align tabs; falling back to single-tab (switchTab dropped). Re-record more cleanly.`,
+    );
+  }
   // No tabs, or counts don't align → keep it single-tab (tab 0). Never mis-route.
   if (!hasSwitch || workflow.steps.length !== nonSwitch.length) {
     return { ...workflow, steps: workflow.steps.map((s) => ({ ...s, tab: s.tab ?? 0 })) };
@@ -61,4 +69,21 @@ export function breakForDemo(wf: Workflow): Workflow {
     c.startUrl += (c.startUrl.includes("?") ? "&" : "?") + "break=1";
   }
   return c;
+}
+
+// Persist a heal onto the PRISTINE workflow, not the broken demo-harness copy that the run used
+// (which has a dropped opener click and a ?break=1 switchTab URL). Carry over only the steps the
+// healer actually re-grounded (matched by stepId); everything else stays pristine. Keeps the saved
+// "latest" workflow and the memory trail clean and replayable.
+export function mergeHeal(pristine: Workflow, healed: Workflow): Workflow {
+  const next = structuredClone(pristine);
+  for (const hs of healed.steps) {
+    const ps = next.steps.find((s) => s.stepId === hs.stepId);
+    if (ps && hs.healHistory.length > ps.healHistory.length) {
+      ps.selector = hs.selector;
+      ps.healHistory = hs.healHistory;
+    }
+  }
+  next.version = healed.version;
+  return next;
 }

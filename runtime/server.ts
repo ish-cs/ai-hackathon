@@ -8,7 +8,7 @@ import { structure } from "../brain/structure";
 import { saveWorkflow, getWorkflow, listWorkflows, getHistory, saveTrace } from "../brain/store";
 import { Recorder } from "./recorder";
 import { replay, closeLiveBrowsers } from "./player";
-import { stripSwitchTabs, applyTabs, breakForDemo } from "./multitab";
+import { stripSwitchTabs, applyTabs, breakForDemo, mergeHeal } from "./multitab";
 import { initSentry } from "./sentry";
 
 initSentry();
@@ -110,11 +110,12 @@ app.post("/api/replay", async (req, res) => {
   let healing = structuredClone(pristine); // re-grounds live every run; write-back logs to history
   healing.version = history.length; // onHeal bumps this → monotonic v2, v3, … in the memory trail
 
-  // ENGINE=browserbase: a workflow recorded against the operator's localhost can't be reached by the
-  // cloud browser, so swap a localhost startUrl for the public MOCK_URL. Workflows recorded against a
-  // public URL (e.g. the v2 LeadSheet) already work from the cloud → leave those untouched.
+  // ENGINE=browserbase: a SINGLE-PAGE workflow recorded against the operator's localhost can't be
+  // reached by the cloud browser, so swap a localhost startUrl for the public MOCK_URL. A multi-tab
+  // workflow's startUrl is its own page (e.g. the public LeadSheet) — never replace it with the mock.
+  const isMultiTab = pristine.steps.some((s) => s.action === "switchTab");
   const isLocalHost = /^https?:\/\/(localhost|127\.0\.0\.1)/i.test(pristine.startUrl);
-  const base = process.env.MOCK_URL && isLocalHost ? process.env.MOCK_URL : pristine.startUrl;
+  const base = process.env.MOCK_URL && isLocalHost && !isMultiTab ? process.env.MOCK_URL : pristine.startUrl;
   control.startUrl = base;
   healing.startUrl = base;
 
@@ -133,8 +134,9 @@ app.post("/api/replay", async (req, res) => {
       emit: broadcast,
       onHeal: async (wf) => {
         wf.version += 1;
-        wf.startUrl = pristine.startUrl; // never persist the ?break=1 demo-harness mutation
-        await saveWorkflow(wf);
+        // Persist the heal onto the PRISTINE structure, not the broken demo-harness copy (dropped
+        // opener click / ?break=1 switchTab URL), so the saved workflow + memory trail stay clean.
+        await saveWorkflow(mergeHeal(pristine, wf));
       },
     }),
   ]);
