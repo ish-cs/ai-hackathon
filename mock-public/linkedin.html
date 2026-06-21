@@ -3,74 +3,205 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>LinkedIn — Messaging</title>
+    <title>LinkedUp — Messaging</title>
     <style>
-      :root { --blue:#0a66c2; --bg:#f4f2ee; --card:#fff; --line:#e0dfdc; --ink:#1d1d1f; --dim:#666; }
+      :root { --blue:#0a66c2; --blue2:#378fe9; --bg:#f4f2ee; --card:#fff; --line:#e0dfdc;
+              --ink:#1d1d1f; --dim:#5e5e5e; --green:#057642; }
       * { box-sizing:border-box; }
-      body { margin:0; font:15px/1.5 -apple-system,"Segoe UI",Roboto,system-ui,sans-serif; background:var(--bg); color:var(--ink); }
-      .nav { background:var(--card); border-bottom:1px solid var(--line); display:flex; align-items:center; gap:14px; padding:8px 18px; position:sticky; top:0; }
-      .in { width:30px; height:30px; border-radius:6px; background:var(--blue); color:#fff; display:grid; place-items:center; font-weight:800; font-family:Georgia,serif; }
-      #li-search { flex:0 1 320px; padding:8px 12px; border:1px solid var(--line); border-radius:6px; background:#eef3f8; font-size:14px; }
+      body { margin:0; font:15px/1.5 -apple-system,"Segoe UI",Roboto,system-ui,sans-serif;
+             background:var(--bg); color:var(--ink); }
+
+      /* ---- top nav ---- */
+      .nav { background:var(--card); border-bottom:1px solid var(--line); position:sticky; top:0; z-index:20; }
+      .nav-in { max-width:1128px; margin:0 auto; display:flex; align-items:center; gap:10px; padding:6px 18px; }
+      .brand { display:flex; align-items:center; font-weight:800; font-size:20px; letter-spacing:-.5px; }
+      .brand .word { color:var(--ink); }
+      .brand .badge { background:var(--blue); color:#fff; border-radius:6px; padding:0 6px; margin-left:1px;
+                      font-family:Georgia,serif; }
+      .search-wrap { position:relative; }
+      .search-wrap svg { position:absolute; left:9px; top:50%; transform:translateY(-50%); opacity:.55; }
+      #li-search { width:280px; padding:8px 12px 8px 32px; border:1px solid transparent; border-radius:6px;
+                   background:#edf3f8; font-size:14px; }
+      #li-search:focus { outline:none; border-color:var(--blue); background:#fff; }
       .nav .spacer { flex:1; }
-      .nav .me { width:28px; height:28px; border-radius:50%; background:linear-gradient(135deg,#0a66c2,#378fe9); }
-      .wrap { max-width:680px; margin:20px auto; padding:0 16px; display:grid; gap:14px; }
-      .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:18px; }
-      .result { display:flex; align-items:center; gap:14px; cursor:pointer; }
-      .result:hover { background:#fafafa; }
-      .avatar { width:56px; height:56px; border-radius:50%; background:linear-gradient(135deg,#0a66c2,#70b5f9); flex:none; }
-      .result .who { font-weight:600; } .result .sub { color:var(--dim); font-size:13px; }
-      .hidden { display:none; }
-      .profile-head { display:flex; align-items:center; gap:16px; }
-      .profile-head .avatar { width:80px; height:80px; }
-      .pname { font-size:22px; font-weight:700; }
-      .phead { color:var(--dim); }
-      .btn { border:none; border-radius:20px; padding:9px 20px; font-size:15px; font-weight:600; cursor:pointer; }
+      .navlinks { display:flex; align-items:center; gap:4px; }
+      .navlink { display:flex; flex-direction:column; align-items:center; gap:2px; padding:4px 12px;
+                 color:var(--dim); font-size:11px; cursor:pointer; border-bottom:2px solid transparent; }
+      .navlink:hover, .navlink.active { color:var(--ink); }
+      .navlink.active { border-bottom-color:var(--ink); }
+      .navlink svg { width:22px; height:22px; }
+      .me { width:24px; height:24px; border-radius:50%; background:linear-gradient(135deg,var(--blue),var(--blue2)); }
+
+      /* ---- layout ---- */
+      .wrap { max-width:1128px; margin:24px auto; padding:0 16px; display:grid;
+              grid-template-columns:1fr 300px; gap:24px; align-items:start; }
+      @media (max-width:860px){ .wrap{ grid-template-columns:1fr; } .rail{ display:none; } }
+      .col { display:grid; gap:12px; }
+      .card { background:var(--card); border:1px solid var(--line); border-radius:10px; overflow:hidden; }
+      .pad { padding:18px; }
+
+      /* ---- search result ---- */
+      .result-hd { font-size:13px; color:var(--dim); padding:12px 18px 4px; }
+      .result { display:flex; align-items:center; gap:14px; cursor:pointer; padding:14px 18px; }
+      .result:hover { background:#f3f9ff; }
+      .avatar { border-radius:50%; background:linear-gradient(135deg,var(--blue),#70b5f9); flex:none;
+                position:relative; }
+      .av-sm { width:52px; height:52px; }
+      .result .who { font-weight:600; color:var(--blue); }
+      .result .sub { color:var(--dim); font-size:13px; }
+      .result .meta { color:#8a8a8a; font-size:12px; margin-top:2px; }
+      .badge-pill { display:inline-block; font-size:11px; color:var(--dim); border:1px solid var(--line);
+                    border-radius:20px; padding:1px 8px; margin-left:6px; vertical-align:middle; }
+
+      /* ---- profile ---- */
+      .cover { height:130px; background:linear-gradient(120deg,#0a66c2,#378fe9 55%,#70b5f9); }
+      .profile-body { padding:0 22px 20px; margin-top:-44px; }
+      .profile-head { display:flex; align-items:flex-end; justify-content:space-between; gap:16px; }
+      .av-lg { width:120px; height:120px; border:4px solid #fff; }
+      .pname { font-size:24px; font-weight:700; margin-top:10px; }
+      .phead { color:var(--ink); margin-top:2px; }
+      .ploc { color:var(--dim); font-size:13px; margin-top:4px; }
+      .pconn { color:var(--blue); font-size:13px; font-weight:600; margin-top:6px; }
+      .actions { display:flex; gap:8px; margin-top:14px; flex-wrap:wrap; }
+      .btn { border:none; border-radius:20px; padding:8px 18px; font-size:15px; font-weight:600; cursor:pointer;
+             display:inline-flex; align-items:center; gap:6px; }
       .btn-primary { background:var(--blue); color:#fff; }
+      .btn-primary:hover { background:#004182; }
       .btn-ghost { background:#fff; color:var(--blue); border:1.5px solid var(--blue); }
-      .mt { margin-top:14px; }
-      textarea { width:100%; min-height:96px; border:1px solid var(--line); border-radius:8px; padding:12px; font:inherit; resize:vertical; }
-      .compose-head { font-weight:600; margin-bottom:8px; }
-      .sent { color:#057642; font-weight:700; margin-top:12px; }
-      .flag { position:fixed; bottom:12px; right:16px; font-size:12px; color:#b7b3aa; }
+      .btn-ghost:hover { background:#eaf3fb; }
+      .btn-quiet { background:#fff; color:var(--dim); border:1.5px solid #b0b0b0; }
+      .sec-title { font-size:18px; font-weight:700; margin:0 0 10px; }
+      .xp { display:flex; gap:12px; padding:10px 0; }
+      .xp + .xp { border-top:1px solid var(--line); }
+      .xp .logo { width:44px; height:44px; border-radius:8px; background:#eef3f8; display:grid; place-items:center;
+                  font-weight:800; color:var(--blue); flex:none; }
+      .xp .role { font-weight:600; } .xp .org { font-size:13px; } .xp .when { color:var(--dim); font-size:12px; }
+      .hidden { display:none; }
+
+      /* ---- right rail ---- */
+      .rail .card .pad { font-size:13px; color:var(--dim); }
+      .rail .ad { font-size:11px; color:#8a8a8a; margin-bottom:8px; }
+
+      /* ---- messaging overlay (bottom-right, like LinkedIn) ---- */
+      #li-compose-box { position:fixed; right:20px; bottom:0; width:340px; z-index:30;
+                        border-radius:10px 10px 0 0; box-shadow:0 0 0 1px var(--line),0 12px 28px rgba(0,0,0,.22); }
+      .msg-hd { display:flex; align-items:center; gap:10px; padding:10px 14px; border-bottom:1px solid var(--line); }
+      .msg-hd .who { font-weight:600; font-size:14px; }
+      .msg-hd .pres { font-size:11px; color:var(--green); }
+      .msg-body { padding:12px 14px; }
+      textarea { width:100%; min-height:84px; border:1px solid var(--line); border-radius:8px; padding:10px;
+                 font:inherit; resize:vertical; }
+      textarea:focus { outline:none; border-color:var(--blue); }
+      .msg-foot { display:flex; justify-content:flex-end; padding:0 14px 14px; }
+      .sent { color:var(--green); font-weight:700; padding:0 14px 14px; }
+      .flag { position:fixed; bottom:8px; left:16px; font-size:12px; color:#b7b3aa; z-index:40; }
+      .dot { width:9px; height:9px; border-radius:50%; background:var(--green); position:absolute; right:1px; bottom:3px;
+             border:2px solid #fff; }
     </style>
   </head>
   <body>
+    <!-- ───────── top navigation ───────── -->
     <div class="nav">
-      <div class="in">in</div>
-      <input id="li-search" type="text" placeholder="Search by name" />
-      <div class="spacer"></div>
-      <div class="me"></div>
+      <div class="nav-in">
+        <div class="brand"><span class="word">Linked</span><span class="badge">up</span></div>
+        <div class="search-wrap">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          <input id="li-search" type="text" placeholder="Search by name" />
+        </div>
+        <div class="spacer"></div>
+        <div class="navlinks">
+          <div class="navlink"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3l9 8h-3v9h-4v-6h-4v6H6v-9H3z"/></svg>Home</div>
+          <div class="navlink"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 11a3 3 0 100-6 3 3 0 000 6zm7 0a3 3 0 100-6 3 3 0 000 6zM3 20v-2a4 4 0 014-4h4a4 4 0 014 4v2zm12-6h2a4 4 0 014 4v2h-4v-2a6 6 0 00-2-4z"/></svg>Network</div>
+          <div class="navlink"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 5V3h6v2h5v14H4V5zm2 0h2V4h-2zm-5 2v10h12V7z"/></svg>Jobs</div>
+          <div class="navlink active"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 4h16v12H7l-3 3z"/></svg>Messaging</div>
+          <div class="navlink"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 22a2 2 0 002-2h-4a2 2 0 002 2zm7-6V11a7 7 0 10-14 0v5l-2 2v1h18v-1z"/></svg>Notifications</div>
+          <div class="navlink"><span class="avatar me" style="width:24px;height:24px"></span>Me</div>
+        </div>
+      </div>
     </div>
 
     <div class="wrap">
-      <!-- Search result (click to open the profile) -->
-      <div class="card result" id="li-result" role="button" tabindex="0">
-        <div class="avatar"></div>
-        <div>
-          <div class="who" id="li-result-name">Search result</div>
-          <div class="sub">Open profile to message</div>
-        </div>
-      </div>
-
-      <!-- Profile (revealed after clicking the result) -->
-      <div class="card hidden" id="li-profile">
-        <div class="profile-head">
-          <div class="avatar"></div>
-          <div>
-            <div class="pname" id="li-pname">—</div>
-            <div class="phead" id="li-phead">—</div>
+      <div class="col">
+        <!-- Search result (click to open the profile) -->
+        <div class="card">
+          <div class="result-hd">People · 1 result</div>
+          <div class="result" id="li-result" role="button" tabindex="0">
+            <div class="avatar av-sm"><span class="dot"></span></div>
+            <div>
+              <div class="who" id="li-result-name">Search result</div>
+              <div class="sub" id="li-result-sub">Open profile to message</div>
+              <div class="meta">San Francisco Bay Area<span class="badge-pill">3rd</span><span class="badge-pill">12 mutual</span></div>
+            </div>
           </div>
         </div>
-        <button class="btn btn-ghost mt" id="li-message-btn">Message</button>
+
+        <!-- Profile (revealed after clicking the result) -->
+        <div class="card hidden" id="li-profile">
+          <div class="cover"></div>
+          <div class="profile-body">
+            <div class="profile-head">
+              <div class="avatar av-lg"><span class="dot" style="width:14px;height:14px;right:6px;bottom:8px"></span></div>
+            </div>
+            <div class="pname" id="li-pname">—</div>
+            <div class="phead" id="li-phead">—</div>
+            <div class="ploc">San Francisco Bay Area · <span style="color:var(--blue)">Contact info</span></div>
+            <div class="pconn">500+ connections</div>
+            <div class="actions">
+              <button class="btn btn-ghost" id="li-message-btn">✉ Message</button>
+              <button class="btn btn-quiet" id="li-connect-btn" type="button">+ Connect</button>
+              <button class="btn btn-quiet" type="button">More</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- About + Experience: pure decoration, no recorded steps touch these -->
+        <div class="card hidden" id="li-about">
+          <div class="pad">
+            <h3 class="sec-title">About</h3>
+            <div style="color:var(--dim)">Building reliable systems and helping teams ship. Always open to
+              connecting with people working on hard problems.</div>
+          </div>
+        </div>
+        <div class="card hidden" id="li-xp">
+          <div class="pad">
+            <h3 class="sec-title">Experience</h3>
+            <div class="xp"><div class="logo">A</div><div>
+              <div class="role" id="li-xp-role">—</div><div class="org">Acme · Full-time</div>
+              <div class="when">2021 — Present · 4 yrs</div></div></div>
+            <div class="xp"><div class="logo">G</div><div>
+              <div class="role">Senior Engineer</div><div class="org">Globex</div>
+              <div class="when">2018 — 2021 · 3 yrs</div></div></div>
+          </div>
+        </div>
       </div>
 
-      <!-- Compose (revealed after clicking Message) -->
-      <div class="card hidden" id="li-compose-box">
-        <div class="compose-head">New message</div>
-        <textarea id="li-compose" placeholder="Write a message…"></textarea>
-        <div class="mt"><button class="btn btn-primary" id="li-send">Send</button></div>
-        <div class="sent hidden" id="li-sent">✓ Message sent</div>
+      <!-- right rail -->
+      <div class="rail col">
+        <div class="card"><div class="pad">
+          <div class="ad">Promoted</div>
+          <strong style="color:var(--ink)">Grow your network</strong>
+          <div style="margin-top:6px">People in your industry are connecting this week.</div>
+        </div></div>
+        <div class="card"><div class="pad">
+          <strong style="color:var(--ink)">People also viewed</strong>
+          <div style="margin-top:8px">· Priya Nair — Eng Lead</div>
+          <div>· Tom Reyes — Recruiter</div>
+          <div>· Dana Wu — PM</div>
+        </div></div>
       </div>
+    </div>
+
+    <!-- Compose (revealed after clicking Message) — styled as LinkedIn's bottom-right messaging dock -->
+    <div class="card hidden" id="li-compose-box">
+      <div class="msg-hd">
+        <div class="avatar av-sm" style="width:36px;height:36px"></div>
+        <div><div class="who" id="li-compose-who">New message</div><div class="pres">● Active now</div></div>
+      </div>
+      <div class="msg-body">
+        <textarea id="li-compose" placeholder="Write a message…"></textarea>
+      </div>
+      <div class="msg-foot"><button class="btn btn-primary" id="li-send">Send</button></div>
+      <div class="sent hidden" id="li-sent">✓ Message sent</div>
     </div>
 
     <div class="flag" id="flag"></div>
@@ -78,13 +209,16 @@
       const q = () => document.getElementById("li-search").value.trim() || "this person";
       const show = (id) => document.getElementById(id).classList.remove("hidden");
 
-      // Open profile from the search result; personalize the name from the search box.
+      // Open profile from the search result; personalize from the search box.
       document.getElementById("li-result").addEventListener("click", () => {
         const name = q();
         document.getElementById("li-result-name").textContent = name;
+        document.getElementById("li-result-sub").textContent = "VP Engineering at Acme";
         document.getElementById("li-pname").textContent = name;
-        document.getElementById("li-phead").textContent = "Open to connect";
-        show("li-profile");
+        document.getElementById("li-phead").textContent = "VP Engineering at Acme · Open to connect";
+        document.getElementById("li-xp-role").textContent = "VP Engineering";
+        document.getElementById("li-compose-who").textContent = name;
+        show("li-profile"); show("li-about"); show("li-xp");
       });
 
       document.getElementById("li-message-btn").addEventListener("click", () => show("li-compose-box"));
