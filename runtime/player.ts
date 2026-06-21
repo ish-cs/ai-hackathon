@@ -131,7 +131,8 @@ export async function replay(wf: Workflow, row: DataRow, opts: ReplayOpts): Prom
 
   // Emit the active tab's live-view so the UI iframe follows it (Browserbase only; local → no-op).
   const followTab = async (tabIndex: number): Promise<void> => {
-    const url = await liveViewForTab(opened, tabIndex);
+    // tab 0's live-view was already fetched at open — reuse it to skip a redundant debug() round-trip.
+    const url = tabIndex === 0 && opened.liveViewUrl ? opened.liveViewUrl : await liveViewForTab(opened, tabIndex);
     if (url) opts.emit({ kind: "liveview", lane: opts.lane, url });
   };
   // Make a tab active: bring to front + follow it in the UI.
@@ -150,7 +151,7 @@ export async function replay(wf: Workflow, row: DataRow, opts: ReplayOpts): Prom
     if (!orphan) {
       // a click may still be opening it — wait briefly for the popup before opening one ourselves
       try {
-        orphan = await context.waitForEvent("page", { timeout: 2000 });
+        orphan = await context.waitForEvent("page", { timeout: 1000 });
       } catch {
         /* no popup — open by URL below */
       }
