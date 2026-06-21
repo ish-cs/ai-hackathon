@@ -8,16 +8,17 @@ async function main(): Promise<void> {
   const contextId = process.env.STAGEHAND_CONTEXT_ID;
   if (!contextId) throw new Error("STAGEHAND_CONTEXT_ID unset");
 
+  const profileUrl = process.argv[2] ?? "https://www.linkedin.com/mynetwork/invite-connections/connections/";
+  console.log("target:", profileUrl);
   const lane = new StagehandLane({
-    startUrl: "https://www.linkedin.com/mynetwork/invite-connections/connections/",
+    startUrl: profileUrl,
     instruction:
-      "You are already logged into LinkedIn. Open the FIRST connection in your connections list, go to " +
-      "their profile, and click the 'Message' button to open the message composer. " +
-      "Do NOT type anything. Do NOT click Send. Stop as soon as the message composer is open.",
+      "You are already logged into LinkedIn and on a person's profile page. Click the 'Message' button to " +
+      "open the message composer. Do NOT type anything. Do NOT click Send. Stop as soon as the composer is open.",
     contextId,
     stealth: false, // Enterprise-only on our Dev plan
     proxies: true,
-    maxSteps: 18,
+    maxSteps: 12,
   });
 
   const events: RunEvent[] = [];

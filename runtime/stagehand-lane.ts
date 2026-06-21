@@ -24,6 +24,9 @@ export interface StagehandLaneConfig {
   instruction: string;
   /** Warmed burner Browserbase Context id (auth reuse → no login on stage). Omit for a benign smoke. */
   contextId?: string;
+  /** Resume a pre-warmed keepAlive session by id (stable IP, already logged in). Wins over contextId —
+   *  the one-session approach for live LinkedIn (avoids the per-session IP rotation that gets us logged out). */
+  sessionId?: string;
   /** Residential proxy — needed to look like a real user on LinkedIn. Default true. */
   proxies?: boolean;
   /** Advanced Stealth (Verified mode) — ENTERPRISE-only, so OFF by default. Basic fingerprinting + proxy otherwise. */
@@ -64,20 +67,24 @@ export class StagehandLane {
       model: MODEL, // LLM reads ANTHROPIC_API_KEY from env
       serverCache: false, // no action caching → the honest "pure-LLM-every-step" expensive lane
       verbose: 1,
-      browserbaseSessionCreateParams: {
-        projectId,
-        proxies: this.cfg.proxies ?? true, // residential proxy → looks like a real user
-        browserSettings: {
-          viewport: { width: 1280, height: 800 },
-          // advancedStealth (Verified mode) is ENTERPRISE-only → 403 on Dev/Scale. Only send it when
-          // explicitly enabled; otherwise rely on default fingerprinting + the residential proxy.
-          ...(this.cfg.stealth ? { advancedStealth: true } : {}),
-          solveCaptchas: true,
-          // Reuse the warmed burner LinkedIn auth so there's no login on stage. persist:false → read
-          // the auth, never write back, so concurrent lanes can't corrupt the warmed Context.
-          ...(this.cfg.contextId ? { context: { id: this.cfg.contextId, persist: false } } : {}),
-        },
-      },
+      // sessionId → RESUME a pre-warmed keepAlive session (one stable IP, already logged in); this is the
+      // one-session fix for live LinkedIn. Otherwise create a fresh session, optionally reusing a Context.
+      ...(this.cfg.sessionId
+        ? { browserbaseSessionID: this.cfg.sessionId }
+        : {
+            browserbaseSessionCreateParams: {
+              projectId,
+              proxies: this.cfg.proxies ?? true, // residential proxy → looks like a real user
+              browserSettings: {
+                viewport: { width: 1280, height: 800 },
+                // advancedStealth (Verified mode) is ENTERPRISE-only → 403 on Dev/Scale. Only when enabled.
+                ...(this.cfg.stealth ? { advancedStealth: true } : {}),
+                solveCaptchas: true,
+                // Reuse the warmed burner auth read-only so concurrent lanes can't corrupt the Context.
+                ...(this.cfg.contextId ? { context: { id: this.cfg.contextId, persist: false } } : {}),
+              },
+            },
+          }),
     });
     await this.sh.init();
     this.liveViewUrl = await debugUrl(apiKey, this.sh.browserbaseSessionID);
