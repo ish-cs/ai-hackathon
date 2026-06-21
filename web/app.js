@@ -154,7 +154,7 @@ async function api(path, body) {
 }
 
 $("rec-start").onclick = async () => {
-  await api("/api/record/start", { url: `${location.origin}/mock` });
+  await api("/api/record/start", { url: $("start-url").value || `${location.origin}/mock` });
   log("[record] started — demonstrate in the opened browser, then Stop");
 };
 
@@ -163,12 +163,28 @@ $("rec-stop").onclick = async () => {
   log(`[record] ${trace.actions.length} actions captured — structuring…`);
   const wf = await api("/api/workflows", trace);
   $("wf").value = wf.workflowId;
+  renderParams(wf.parameters);
   log(`[workflow] ${wf.workflowId} v${wf.version} — ${wf.steps.length} steps, ${wf.parameters.length} params`);
 };
 
+// Render an input per workflow parameter — works for any workflow (customer form OR LinkedIn outreach).
+function renderParams(params) {
+  const box = $("params");
+  box.innerHTML = "";
+  for (const p of params || []) {
+    const inp = document.createElement("input");
+    inp.dataset.param = p.name;
+    inp.placeholder = p.name;
+    inp.value = p.example || "";
+    inp.size = Math.min(44, Math.max(12, (p.example || p.name).length + 2));
+    box.appendChild(inp);
+  }
+}
+
 function run(breakSite) {
-  const row = { customerName: $("name").value, customerEmail: $("email").value };
-  log(`[run] ${$("wf").value} breakSite=${breakSite}`);
+  const row = {};
+  for (const inp of document.querySelectorAll("#params input")) row[inp.dataset.param] = inp.value;
+  log(`[run] ${$("wf").value} breakSite=${breakSite} row=${JSON.stringify(row)}`);
   api("/api/replay", { workflowId: $("wf").value, row, breakSite });
 }
 $("run").onclick = () => run(false);
@@ -183,6 +199,7 @@ $("run-break").onclick = () => run(true);
     if (Array.isArray(wfs) && wfs.length) {
       const wf = wfs[0];
       $("wf").value = wf.workflowId;
+      renderParams(wf.parameters);
       log(`[workflow] auto-loaded ${wf.workflowId} — ${wf.steps.length} steps, ${wf.parameters.length} params${wfs.length > 1 ? ` (${wfs.length} saved; paste another id to switch)` : ""}`);
     } else {
       log("[workflow] none saved yet — Record one, or it won't have a workflow to Run");

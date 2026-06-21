@@ -78,13 +78,13 @@
     </header>
 
     <div class="bar">
-      <input id="task" placeholder="task name" value="copy customer into form" size="28" />
+      <input id="start-url" placeholder="start URL" value="https://mock-public-ish-c.vercel.app/leadsheet.html" size="40" />
+      <input id="task" placeholder="task name" value="message leads on LinkedIn" size="22" />
       <button id="rec-start">● Record</button>
       <button id="rec-stop">■ Stop &amp; build workflow</button>
       <span style="width:16px"></span>
       <input id="wf" placeholder="workflowId" size="16" />
-      <input id="name" placeholder="customerName" value="Beta LLC" />
-      <input id="email" placeholder="customerEmail" value="hi@beta.com" />
+      <span id="params"></span>
       <button id="run" class="primary">▶ Run (split-screen)</button>
       <button id="run-break" class="danger">🔧 Run with broken site</button>
     </div>

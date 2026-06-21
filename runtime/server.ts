@@ -39,8 +39,9 @@ function broadcast(event: RunEvent): void {
 // ---- Record ----
 app.post("/api/record/start", async (req, res) => {
   try {
-    // ENGINE=browserbase: record against the PUBLIC mock (cloud browsers can't reach localhost).
-    const url = process.env.MOCK_URL ?? req.body.url ?? "http://localhost:3000/mock";
+    // Record against the URL the UI asks for (e.g. the LeadSheet), falling back to MOCK_URL then the
+    // local mock. Recording is local, so any public/local URL is reachable.
+    const url = req.body.url ?? process.env.MOCK_URL ?? "http://localhost:3000/mock";
     const { liveViewUrl } = await recorder.start(url);
     // Browserbase: push the record live-view to the UI so the user can teach inside the iframe.
     // Local: liveViewUrl is undefined → no event → the OS record window is used as before.
