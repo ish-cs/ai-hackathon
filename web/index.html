@@ -3,108 +3,58 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Mimic — Show, Don't Code</title>
+    <title>Mimic — Cost Race</title>
     <style>
-      :root { --bg:#0c0d10; --panel:#15171c; --line:#262a33; --ink:#e8eaed; --dim:#8b909c;
-              --ok:#39d98a; --fail:#ff5d5d; --heal:#5da9ff; --accent:#ffb454; }
+      :root { --bg:#0c0d10; --line:#262a33; --ink:#e8eaed; --dim:#8b909c;
+              --stage:#ff7a59; --mimic:#39d98a; }
       * { box-sizing: border-box; }
-      body { margin:0; background:var(--bg); color:var(--ink); font:14px/1.5 ui-sans-serif,system-ui,sans-serif; }
-      header { padding:16px 24px; border-bottom:1px solid var(--line); display:flex; gap:16px; align-items:baseline; }
-      h1 { font-size:18px; margin:0; }
-      header .tag { color:var(--dim); font-size:13px; }
-      .bar { padding:12px 24px; border-bottom:1px solid var(--line); display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
-      button { background:var(--panel); color:var(--ink); border:1px solid var(--line); border-radius:8px;
-               padding:8px 14px; cursor:pointer; font-size:13px; }
-      button:hover { border-color:var(--accent); }
-      button.primary { background:var(--accent); color:#000; border-color:var(--accent); font-weight:600; }
-      button.danger { border-color:var(--fail); color:var(--fail); }
-      input { background:var(--panel); color:var(--ink); border:1px solid var(--line); border-radius:8px; padding:8px 10px; }
-      .split { display:grid; grid-template-columns:1fr 1fr; gap:16px; padding:16px 24px; }
-      .lane { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:16px; min-height:240px; }
-      .lane h2 { font-size:14px; margin:0 0 12px; display:flex; justify-content:space-between; }
-      .lane.control h2 span.t { color:var(--fail); }
-      .lane.healing h2 span.t { color:var(--ok); }
-      .step { padding:8px 10px; border-radius:8px; margin-bottom:6px; border:1px solid var(--line);
-              display:flex; justify-content:space-between; gap:8px; font-family:ui-monospace,monospace; font-size:12px; }
-      .step.ok { border-color:var(--ok); }
-      .step.failed { border-color:var(--fail); background:rgba(255,93,93,.08); }
-      .step.healed { border-color:var(--heal); background:rgba(93,169,255,.08); }
-      .step .s { color:var(--dim); }
-      .heal-note { font-size:12px; color:var(--heal); padding:4px 10px; margin-bottom:6px; }
-      .heal-card { border:1px solid var(--heal); border-radius:10px; padding:10px 12px; margin:6px 0;
-                   background:rgba(93,169,255,.06); display:grid; gap:6px; opacity:0; transform:translateY(6px);
-                   transition:opacity .25s ease, transform .25s ease; }
-      .heal-card.reveal { opacity:1; transform:none; }
-      .heal-card .hc-head { font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--heal); font-weight:700; }
-      .heal-card .hc-old { font-family:ui-monospace,monospace; font-size:12px; color:var(--fail); position:relative; width:max-content; opacity:.7; }
-      .heal-card .hc-old::after { content:""; position:absolute; left:0; top:50%; height:1px; width:0; background:var(--fail); transition:width .3s ease; }
-      .heal-card.reveal .hc-old::after { width:100%; }
-      .heal-card .hc-arrow { color:var(--dim); font-size:14px; opacity:0; transform:translateY(-4px);
-                             transition:opacity .35s ease .3s, transform .35s ease .3s; }
-      .heal-card .hc-new { font-family:ui-monospace,monospace; font-size:13px; color:var(--ok); font-weight:600; opacity:0; transform:translateY(-4px);
-                           transition:opacity .35s ease .3s, transform .35s ease .3s; }
-      .heal-card.reveal .hc-arrow, .heal-card.reveal .hc-new { opacity:1; transform:none; }
-      .heal-card .hc-reason { font-size:12px; color:var(--dim); max-height:60px; overflow:auto; line-height:1.4;
-                              opacity:0; transition:opacity .4s ease .7s; }
-      .heal-card.reveal .hc-reason { opacity:1; }
-      .heal-card .ring { width:40px; height:40px; }
-      .ring-bg { fill:none; stroke:var(--line); stroke-width:4; }
-      .ring-fg { fill:none; stroke:var(--ok); stroke-width:4; stroke-linecap:round; transition:stroke-dashoffset .6s ease .7s; }
-      .ring-txt { fill:var(--ink); font-size:11px; font-family:ui-monospace,monospace; }
-      .heal-card.refused { border-color:var(--accent); background:rgba(255,180,84,.06); }
-      .heal-card.refused .hc-head { color:var(--accent); }
-      .lane.crashed { border-color:var(--fail); box-shadow:0 0 0 1px var(--fail) inset; }
-      .lane.completed { border-color:var(--ok); box-shadow:0 0 0 1px var(--ok) inset; }
-      .status.big { font-size:20px; font-weight:800; letter-spacing:.02em; }
-      .status.big.completed { color:var(--ok); }
-      .status.big.crashed { color:var(--fail); }
-      .lane.crashed .step.failed { animation:pulse 1s ease infinite; }
-      @keyframes pulse { 0%,100% { background:rgba(255,93,93,.08); } 50% { background:rgba(255,93,93,.22); } }
-      .status { font-size:12px; color:var(--dim); }
-      #log { padding:12px 24px; border-top:1px solid var(--line); font-family:ui-monospace,monospace;
-             font-size:11px; color:var(--dim); max-height:160px; overflow:auto; white-space:pre-wrap; }
-      /* Browserbase live-view iframes (ENGINE=browserbase). Absent when ENGINE=local → OS windows. */
-      .liveview { width:100%; height:360px; border:1px solid var(--line); border-radius:8px;
-                  margin:0 0 12px; background:#000; display:block; }
-      #record-frame { padding:0 24px; display:none; }
-      #record-frame .label { color:var(--accent); font-size:13px; margin:10px 0; font-weight:600; }
-      #record-frame iframe.liveview { height:560px; }
+      html, body { height:100%; margin:0; }
+      body { background:var(--bg); color:var(--ink); display:flex; flex-direction:column;
+             font:14px/1.5 ui-sans-serif,system-ui,sans-serif; }
+      .topbar { display:flex; justify-content:center; padding:10px; border-bottom:1px solid var(--line); }
+      button { background:var(--mimic); color:#000; border:none; border-radius:8px;
+               padding:10px 24px; font-size:15px; font-weight:700; cursor:pointer; }
+      button:disabled { opacity:.45; cursor:default; }
+      .split { flex:1; display:grid; grid-template-columns:1fr 1fr; gap:1px; background:var(--line); min-height:0; }
+      .half { background:var(--bg); display:flex; flex-direction:column; min-height:0; padding:14px 16px; gap:12px; }
+      .label { font-size:18px; font-weight:800; letter-spacing:.02em; text-align:center; }
+      .half.stage .label { color:var(--stage); }
+      .half.mimic .label { color:var(--mimic); }
+      .label small { display:block; font-size:11px; font-weight:500; color:var(--dim);
+                     letter-spacing:.04em; text-transform:uppercase; margin-top:2px; }
+      .window { flex:1; min-height:120px; border:1px solid var(--line); border-radius:10px; background:#000;
+                overflow:hidden; display:flex; align-items:center; justify-content:center; }
+      .window iframe { width:100%; height:100%; border:0; }
+      .window .ph { color:var(--dim); font-size:12px; text-align:center; padding:0 20px; }
+      .counter { display:flex; align-items:baseline; justify-content:center; gap:10px; }
+      .counter .num { font-family:ui-monospace,monospace; font-size:34px; font-weight:800; font-variant-numeric:tabular-nums;
+                      transition:transform .12s ease; }
+      .counter .num.bump { transform:scale(1.12); }
+      .half.stage .counter .num { color:var(--stage); }
+      .half.mimic .counter .num { color:var(--mimic); }
+      .counter .cap { font-size:11px; color:var(--dim); text-transform:uppercase; letter-spacing:.06em; }
+      .counter .cum { font-family:ui-monospace,monospace; font-size:12px; color:var(--dim); }
+      canvas { width:100%; height:130px; display:block; }
     </style>
   </head>
   <body>
-    <header>
-      <h1>Mimic</h1>
-      <span class="tag">Show it once. It works forever — and heals when the site changes.</span>
-    </header>
-
-    <div class="bar">
-      <input id="start-url" placeholder="start URL" value="https://mock-public-ish-c.vercel.app/leadsheet.html" size="40" />
-      <input id="task" placeholder="task name" value="message leads on LinkedIn" size="22" />
-      <button id="rec-start">● Record</button>
-      <button id="rec-stop">■ Stop &amp; build workflow</button>
-      <span style="width:16px"></span>
-      <input id="wf" placeholder="workflowId" size="16" />
-      <span id="params"></span>
-      <button id="run" class="primary">▶ Run (split-screen)</button>
-      <button id="run-break" class="danger">🔧 Run with broken site</button>
-    </div>
-
-    <div id="record-frame"></div>
-
+    <div class="topbar"><button id="start">▶ Start race</button></div>
     <div class="split">
-      <div class="lane control">
-        <h2>Normal agent <span class="t">— no healing</span></h2>
-        <div class="status" id="control-status">idle</div>
-        <div id="control-steps"></div>
+      <div class="half stage">
+        <div class="label">Stagehand<small>pure LLM agent · reasons every run</small></div>
+        <div class="window" id="win-stagehand"><div class="ph">live view connects when the race starts</div></div>
+        <div class="counter"><span class="num" id="cur-stagehand">0</span><span class="cap">tokens · this run</span></div>
+        <div class="counter"><span class="cum" id="cum-stagehand">Σ 0 tok · $0.0000</span></div>
+        <canvas id="g-stagehand"></canvas>
       </div>
-      <div class="lane healing">
-        <h2>Mimic <span class="t">— self-healing</span></h2>
-        <div class="status" id="healing-status">idle</div>
-        <div id="healing-steps"></div>
+      <div class="half mimic">
+        <div class="label">Mimic<small>taught once · deterministic + heals</small></div>
+        <div class="window" id="win-mimic"><div class="ph">live view connects when the race starts</div></div>
+        <div class="counter"><span class="num" id="cur-mimic">0</span><span class="cap">tokens · this run</span></div>
+        <div class="counter"><span class="cum" id="cum-mimic">Σ 0 tok · $0.0000</span></div>
+        <canvas id="g-mimic"></canvas>
       </div>
     </div>
-
-    <div id="log"></div>
-    <script src="/app.js"></script>
+    <script src="/race.js"></script>
   </body>
 </html>
