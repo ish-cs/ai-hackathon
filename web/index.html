@@ -143,7 +143,7 @@
   <!-- ============ HERO ============ -->
   <section style="height:100svh;min-height:640px;padding:14px;">
     <div style="position:relative;width:100%;height:100%;border-radius:28px;overflow:hidden;background:radial-gradient(120% 120% at 70% 10%,#1a1916 0%,#0a0a08 55%,#000 100%);">
-      <video autoplay="" loop="" muted="" playsinline="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:1;transform-origin:48% 49%;animation:heroZoom 26s ease-in-out infinite alternate;will-change:transform;filter:contrast(1.07) saturate(1.1) brightness(1.03);">
+      <video autoplay="" loop="" muted="" playsinline="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;opacity:1;filter:contrast(1.07) saturate(1.1) brightness(1.03);">
         <source src="assets/demo.mp4" type="video/mp4">
       </video>
       <!-- gentle vignette: focus on the figure + keep edges/text legible -->
@@ -169,7 +169,7 @@
       <div style="position:absolute;left:0;right:0;bottom:0;padding:0 32px 30px;z-index:4;display:grid;grid-template-columns:repeat(12,1fr);align-items:end;gap:20px;">
         <h1 data-words="" style="grid-column:1 / span 8;margin:0;font-weight:500;line-height:.82;letter-spacing:-.07em;font-size:clamp(72px,20vw,360px);color:#E1E0CC;opacity:0;">Mimic<sup data-star="" style="font-size:.18em;font-weight:400;vertical-align:top;top:.12em;position:relative;left:-.02em;color:rgba(225,224,204,.7);">*</sup></h1>
         <div style="grid-column:9 / span 4;display:flex;flex-direction:column;gap:18px;padding-bottom:14px;">
-          <p data-reveal="" data-delay="0.4" style="margin:0;color:rgba(225,224,204,.72);font-size:clamp(13px,1.05vw,17px);line-height:1.35;font-weight:300;opacity:0;transform:translateY(20px);transition:opacity .9s cubic-bezier(.16,1,.3,1),transform .9s cubic-bezier(.16,1,.3,1);">Show Mimic a web task once — it runs forever, re-grounding the broken step by what it <em style="font-family:'Instrument Serif',serif;font-style:italic;font-weight:400;">means</em> the moment the site changes.</p>
+          <p data-reveal="" data-delay="0.4" style="margin:0;color:rgba(225,224,204,.72);font-size:clamp(13px,1.05vw,17px);line-height:1.35;font-weight:300;opacity:0;transform:translateY(20px);transition:opacity .9s cubic-bezier(.16,1,.3,1),transform .9s cubic-bezier(.16,1,.3,1);">Today's browser agents re-think every click on every run, burning tokens each time. Show Mimic the task <em style="font-family:'Instrument Serif',serif;font-style:italic;font-weight:400;">once</em> and it replays it for almost nothing, stopping to reason only when a step actually breaks.</p>
           <a data-reveal="" data-delay="0.55" href="#get" class="group" style="display:inline-flex;align-items:center;gap:10px;align-self:flex-start;background:#E1E0CC;color:#000;border-radius:999px;padding:8px 8px 8px 22px;text-decoration:none;font-weight:700;font-size:clamp(13px,1vw,16px);opacity:0;transform:translateY(20px);transition:opacity .9s cubic-bezier(.16,1,.3,1) .15s,transform .9s cubic-bezier(.16,1,.3,1) .15s,gap .3s ease;">Teach it once
             <span style="display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:50%;background:#000;color:#E1E0CC;">
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
@@ -185,8 +185,8 @@
   <section id="problem" style="background:#000;padding:clamp(90px,14vh,180px) 24px;">
     <div style="max-width:1180px;margin:0 auto;background:#0d0d0b;border:1px solid rgba(225,224,204,.07);border-radius:24px;padding:clamp(44px,7vw,96px) clamp(24px,5vw,72px);text-align:center;">
       <div data-reveal="" style="font-size:11px;letter-spacing:.24em;text-transform:uppercase;color:rgba(225,224,204,.6);font-weight:700;margin-bottom:30px;opacity:0;transform:translateY(20px);transition:opacity .9s cubic-bezier(.16,1,.3,1),transform .9s cubic-bezier(.16,1,.3,1);">The idea</div>
-      <h2 data-words="" style="margin:0 auto;max-width:880px;font-weight:400;line-height:.96;letter-spacing:-.02em;font-size:clamp(30px,5vw,68px);color:#E1E0CC;opacity:0;"><span>Automation has always been </span><span style="font-family:'Instrument Serif',serif;font-style:italic;font-weight:400;color:#cfcbb2;">locked behind code. </span><span>Mimic hands it to everyone else.</span></h2>
-      <p data-chars="" style="margin:42px auto 0;max-width:720px;font-size:clamp(15px,1.5vw,21px);line-height:1.55;color:#DEDBC8;font-weight:300;white-space:pre-wrap;">Knowledge workers lose hours to the same browser busywork — copying records between systems that don't talk, filling one form fifty times. Traditional RPA needs a developer. AI agents improvise, and break the moment a layout shifts. Mimic learns from a single demonstration, and repairs itself when the world changes.</p>
+      <h2 data-words="" style="margin:0 auto;max-width:880px;font-weight:400;line-height:.96;letter-spacing:-.02em;font-size:clamp(30px,5vw,68px);color:#E1E0CC;opacity:0;"><span>AI agents </span><span style="font-family:'Instrument Serif',serif;font-style:italic;font-weight:400;color:#cfcbb2;">re-reason every single run. </span><span>Mimic learns once, then replays for free.</span></h2>
+      <p data-chars="" style="margin:42px auto 0;max-width:720px;font-size:clamp(15px,1.5vw,21px);line-height:1.55;color:#DEDBC8;font-weight:300;white-space:pre-wrap;">The same browser busywork runs hundreds of times a day: copying records between systems that don't talk, filling one form fifty times. Hand it to an AI agent and it reasons through every step from scratch on every run, so you pay full token cost each time, and it still breaks the moment the layout shifts. Mimic learns the task from one demonstration and replays it at almost no tokens. It only stops to think when something actually changed, fixes that step itself, and writes the fix back so the next run is free again.</p>
     </div>
   </section>
 
@@ -239,7 +239,7 @@
             <div style="display:flex;gap:9px;align-items:flex-start;"><span style="color:#E1E0CC;flex:none;margin-top:1px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span><span style="font-size:13px;color:#9b988b;line-height:1.4;">Detects the failed step instantly</span></div>
             <div style="display:flex;gap:9px;align-items:flex-start;"><span style="color:#E1E0CC;flex:none;margin-top:1px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span><span style="font-size:13px;color:#9b988b;line-height:1.4;">Re-finds the element by its intent</span></div>
             <div style="display:flex;gap:9px;align-items:flex-start;"><span style="color:#E1E0CC;flex:none;margin-top:1px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span><span style="font-size:13px;color:#9b988b;line-height:1.4;">Patches and retries automatically</span></div>
-            <div style="display:flex;gap:9px;align-items:flex-start;"><span style="color:#E1E0CC;flex:none;margin-top:1px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span><span style="font-size:13px;color:#9b988b;line-height:1.4;">Writes the fix back — never breaks twice</span></div>
+            <div style="display:flex;gap:9px;align-items:flex-start;"><span style="color:#E1E0CC;flex:none;margin-top:1px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span><span style="font-size:13px;color:#9b988b;line-height:1.4;">Writes the fix back, so it never breaks twice</span></div>
           </div>
         </div>
       </div>
@@ -253,7 +253,7 @@
         <span style="font-size:11px;letter-spacing:.24em;text-transform:uppercase;color:#ff6b6b;font-weight:700;">The kill shot</span>
       </div>
       <h2 data-words="" style="text-align:center;margin:0 auto 14px;max-width:840px;font-weight:400;line-height:.98;letter-spacing:-.02em;font-size:clamp(28px,4.4vw,58px);opacity:0;"><span>Every agent works on a good day. </span><span style="font-family:'Instrument Serif',serif;font-style:italic;color:#cfcbb2;">Mimic survives the bad ones.</span></h2>
-      <p data-reveal="" style="text-align:center;max-width:600px;margin:0 auto clamp(40px,6vw,64px);color:rgba(225,224,204,.6);font-size:clamp(14px,1.2vw,17px);font-weight:300;opacity:0;transform:translateY(20px);transition:opacity .9s cubic-bezier(.16,1,.3,1),transform .9s cubic-bezier(.16,1,.3,1);">We rename the form's <span style="font-family:'Instrument Serif',serif;font-style:italic;color:#E1E0CC;">Submit</span> button to <span style="font-family:'Instrument Serif',serif;font-style:italic;color:#E1E0CC;">Send</span> mid-run. Same break, side by side.</p>
+      <p data-reveal="" style="text-align:center;max-width:600px;margin:0 auto clamp(40px,6vw,64px);color:rgba(225,224,204,.6);font-size:clamp(14px,1.2vw,17px);font-weight:300;opacity:0;transform:translateY(20px);transition:opacity .9s cubic-bezier(.16,1,.3,1),transform .9s cubic-bezier(.16,1,.3,1);">We rename a button mid-run. The LLM agent <span style="font-family:'Instrument Serif',serif;font-style:italic;color:#E1E0CC;">re-reasons from scratch</span> at full token cost. Mimic heals the step once, then replays it for <span style="font-family:'Instrument Serif',serif;font-style:italic;color:#E1E0CC;">free</span>.</p>
 
       <div data-reveal="" style="text-align:center;margin:0 auto clamp(28px,4vw,40px);opacity:0;transform:translateY(20px);transition:opacity .9s cubic-bezier(.16,1,.3,1),transform .9s cubic-bezier(.16,1,.3,1);">
         <a href="race.html" style="display:inline-flex;align-items:center;gap:10px;background:#E1E0CC;color:#000;border:none;border-radius:999px;padding:12px 28px;text-decoration:none;font-family:'Almarai',sans-serif;font-weight:700;font-size:16px;transition:gap .3s ease;">Run the live cost race <span style="font-size:18px;">&rarr;</span></a>
@@ -285,7 +285,7 @@
             <div data-cstep="" style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 13px;border:1px solid rgba(225,224,204,.10);border-radius:10px;font:12px/1.4 ui-monospace,Menlo,monospace;color:rgba(225,224,204,.35);transition:all .45s ease;"><span>input · email</span><span data-d="">·</span></div>
             <div data-cstep="" data-fail="" style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 13px;border:1px solid rgba(225,224,204,.10);border-radius:10px;font:12px/1.4 ui-monospace,Menlo,monospace;color:rgba(225,224,204,.35);transition:all .45s ease;"><span>click · #submit-btn</span><span data-d="">·</span></div>
           </div>
-          <div data-ctrl-end="" style="margin-top:auto;padding-top:10px;font-size:18px;font-weight:800;letter-spacing:.02em;color:#ff6b6b;opacity:0;transition:opacity .4s ease;">✕&nbsp; CRASHED — element not found</div>
+          <div data-ctrl-end="" style="margin-top:auto;padding-top:10px;font-size:18px;font-weight:800;letter-spacing:.02em;color:#ff6b6b;opacity:0;transition:opacity .4s ease;">✕&nbsp; CRASHED · element not found</div>
         </div>
 
         <!-- MIMIC LANE -->
@@ -319,7 +319,7 @@
             <span data-reason="" style="font-size:11.5px;line-height:1.45;color:rgba(225,224,204,.55);opacity:0;transition:opacity .4s ease;">Intent <span style="color:rgba(225,224,204,.8);">"submit the form"</span> matched the only button inside the form. Selector patched, retried, written back to the workflow.</span>
           </div>
 
-          <div data-heal-end="" style="margin-top:auto;padding-top:6px;font-size:18px;font-weight:800;letter-spacing:.02em;color:#E1E0CC;opacity:0;transition:opacity .4s ease;">✓&nbsp; HEALED — workflow v2 saved</div>
+          <div data-heal-end="" style="margin-top:auto;padding-top:6px;font-size:18px;font-weight:800;letter-spacing:.02em;color:#E1E0CC;opacity:0;transition:opacity .4s ease;">✓&nbsp; HEALED · workflow v2 saved</div>
         </div>
       </div>
       <div data-reveal="" style="text-align:center;margin-top:26px;font-size:13px;color:rgba(225,224,204,.4);font-family:ui-monospace,Menlo,monospace;opacity:0;transform:translateY(20px);transition:opacity .9s cubic-bezier(.16,1,.3,1),transform .9s cubic-bezier(.16,1,.3,1);">One agent dies. The other writes the fix back so it never breaks there again.</div>
@@ -332,14 +332,14 @@
   <section id="get" style="background:#000;padding:clamp(80px,14vh,200px) 24px clamp(60px,9vh,110px);text-align:center;">
     <h2 data-words="" style="margin:0 auto;max-width:1000px;font-weight:500;line-height:.9;letter-spacing:-.05em;font-size:clamp(48px,11vw,170px);color:#E1E0CC;opacity:0;"><span>Show it once. </span><span style="font-family:'Instrument Serif',serif;font-style:italic;font-weight:400;color:#cfcbb2;">It works forever.</span></h2>
     <div data-reveal="" style="margin-top:clamp(34px,5vw,52px);display:flex;flex-direction:column;align-items:center;gap:18px;opacity:0;transform:translateY(20px);transition:opacity .9s cubic-bezier(.16,1,.3,1),transform .9s cubic-bezier(.16,1,.3,1);">
-      <p style="margin:0;max-width:440px;color:rgba(225,224,204,.6);font-size:clamp(14px,1.2vw,17px);font-weight:300;">Join the waitlist for early access — teach Mimic your first workflow.</p>
+      <p style="margin:0;max-width:440px;color:rgba(225,224,204,.6);font-size:clamp(14px,1.2vw,17px);font-weight:300;">Join the waitlist and teach Mimic your first workflow.</p>
       <form data-waitlist="" style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center;align-items:center;width:100%;max-width:480px;">
         <input data-waitlist-email="" type="email" required="" placeholder="you@work.com" aria-label="email address" style="flex:1 1 220px;min-width:0;background:#0c0c0a;color:#E1E0CC;border:1px solid rgba(225,224,204,.18);border-radius:999px;padding:13px 20px;font:15px/1 'Almarai',sans-serif;outline:none;transition:border-color .2s;" />
         <button type="submit" class="group" style="display:inline-flex;align-items:center;gap:10px;background:#E1E0CC;color:#000;border:none;border-radius:999px;padding:8px 8px 8px 24px;cursor:pointer;font-family:'Almarai',sans-serif;font-weight:700;font-size:16px;transition:gap .3s ease;">Get early access
           <span style="display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:50%;background:#000;color:#E1E0CC;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg></span>
         </button>
       </form>
-      <div data-waitlist-done="" hidden="" style="display:none;align-items:center;gap:9px;color:#E1E0CC;font-weight:700;font-size:17px;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7fd3a0" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>You're on the list — we'll email your invite.</div>
+      <div data-waitlist-done="" hidden="" style="display:none;align-items:center;gap:9px;color:#E1E0CC;font-weight:700;font-size:17px;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7fd3a0" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>You're on the list. We'll email your invite.</div>
       <div style="margin-top:14px;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:rgba(225,224,204,.4);">Built at the Berkeley AI Hackathon · Self-healing web automation</div>
     </div>
   </section>
@@ -591,7 +591,7 @@ class MimicLP {
       const cl = root.querySelector('[data-lane="control"]');
       if (cl) cl.style.animation = 'mimicCrash 1s ease infinite';
       const ce = root.querySelector('[data-ctrl-end]'); if (ce) ce.style.opacity = '1';
-      if (cStatus) { cStatus.textContent = 'dead \u2014 no recovery'; cStatus.style.color = '#ff6b6b'; }
+      if (cStatus) { cStatus.textContent = 'dead, no recovery'; cStatus.style.color = '#ff6b6b'; }
     });
 
     // mimic lane heals
@@ -610,7 +610,7 @@ class MimicLP {
       const hl = root.querySelector('[data-lane="mimic"]');
       if (hl) hl.style.animation = 'mimicGlow 2.4s ease infinite';
       const he = root.querySelector('[data-heal-end]'); if (he) he.style.opacity = '1';
-      if (hStatus) { hStatus.textContent = 'completed \u2014 fix written back'; hStatus.style.color = '#E1E0CC'; }
+      if (hStatus) { hStatus.textContent = 'completed, fix written back'; hStatus.style.color = '#E1E0CC'; }
     });
 
     if ((this.props && this.props.loopHeal)) {
