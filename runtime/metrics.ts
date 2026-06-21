@@ -1,36 +1,14 @@
-// Cost-race metrics — ck's lane. Pure helpers + the metrics event shape the UI consumes.
+// Cost-race metrics — ck's lane. Pricing + pure helpers for the on-screen meter.
 //
-// SEAM NOTE: `MetricsEvent` below is the shape we will move into shared/types.ts once Ishaan acks
-// (see DOCS/plans/2026-06-20-cost-race-ishaan-brief.md). Kept ck-local for now so we don't solo-edit
-// the shared seam. The web client reads it as plain JSON, so this stays the single source of truth.
+// The `metrics` RunEvent + `Lane` type now live in shared/types.ts (Ishaan's seam) — this file no
+// longer defines its own event shape; producers build the shared event and price it with cost() here.
+// Brain (Mimic) token counts come from brain/anthropic.ts `onUsage()` / `lastUsage`; Stagehand reports
+// its own usage in runtime/stagehand-lane.ts. cost() is the single $/token source of truth.
 
-/** Per-run cost sample, emitted by each lane (Stagehand's agent / Mimic's structure+heal). */
-export interface MetricsEvent {
-  kind: "metrics";
-  lane: "stagehand" | "mimic";
-  /** 0 = teaching (run 0), 1..N = running rounds. */
-  run: number;
-  phase: "teaching" | "running";
-  tokensIn: number;
-  tokensOut: number;
-  ms: number;
-  costUsd: number;
-}
-
-/** Browserbase live-view for a race lane (parallels the existing RunEvent liveview, new lanes). */
-export interface RaceLiveViewEvent {
-  kind: "liveview";
-  lane: "stagehand" | "mimic";
-  url: string;
-}
-
-/** Anything ck's /api/race broadcasts on top of the existing RunEvent union. */
-export type RaceEvent = MetricsEvent | RaceLiveViewEvent;
-
-// $/million tokens. CONFIRM current published price for claude-opus-4-8 before the demo
-// (open coordination item #4 in the Ishaan brief). Placeholder = Claude Opus historical rates.
-export const PRICE_IN_PER_MTOK = 15;
-export const PRICE_OUT_PER_MTOK = 75;
+// $/million tokens for claude-opus-4-8 (list price; matches runtime/stagehand-lane.ts PRICE so both
+// lanes are priced identically). Update here if Anthropic pricing changes — this is the source of truth.
+export const PRICE_IN_PER_MTOK = 5.0;
+export const PRICE_OUT_PER_MTOK = 25.0;
 
 /** Dollar cost of one LLM call given its token usage. */
 export function cost(tokensIn: number, tokensOut: number): number {
