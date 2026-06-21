@@ -17,7 +17,7 @@
       .toolbar span:hover { background:var(--head); }
       table { border-collapse:collapse; width:100%; }
       th, td { border:1px solid var(--line); padding:9px 12px; text-align:left; }
-      thead th { background:var(--head); color:var(--dim); font-weight:500; position:sticky; top:0; }
+      thead th { background:var(--head); color:var(--dim); font-weight:500; position:sticky; top:0; z-index:1; }
       .rownum { background:var(--head); color:var(--dim); text-align:center; width:36px; user-select:none; }
       tbody tr:hover td { background:#fafafa; }
       tbody tr.sel td { background:var(--sel); }
@@ -38,7 +38,7 @@
   <body>
     <div class="bar">
       <div class="logo">▦</div>
-      <div class="title">LeadSheet <small>Q3 Outreach · 5 leads</small></div>
+      <div class="title">LeadSheet <small id="lead-count">Q3 Outreach</small></div>
     </div>
     <div class="toolbar"><span>File</span><span>Edit</span><span>View</span><span>Insert</span><span>Data</span><span>Tools</span></div>
 
@@ -46,36 +46,46 @@
       <thead>
         <tr><th class="rownum"></th><th>A — Name</th><th>B — Role</th><th>C — Company</th><th>D — Status</th><th>E — Action</th></tr>
       </thead>
-      <tbody id="leads">
-        <tr data-row="0"><td class="rownum">1</td><td class="name" data-cell="name">Sarah Chen</td><td data-cell="role">VP Engineering</td><td data-cell="company">Acme</td><td data-cell="status"><span class="st st-none">Not contacted</span></td><td><a class="li-open" data-action="message" href="./linkedin.html" target="_blank">Message on LinkedIn ↗</a></td></tr>
-        <tr data-row="1"><td class="rownum">2</td><td class="name" data-cell="name">Marcus Lee</td><td data-cell="role">Head of Product</td><td data-cell="company">Globex</td><td data-cell="status"><span class="st st-msg">Messaged</span></td><td><a class="li-open" data-action="message" href="./linkedin.html" target="_blank">Message on LinkedIn ↗</a></td></tr>
-        <tr data-row="2"><td class="rownum">3</td><td class="name" data-cell="name">Priya Patel</td><td data-cell="role">CTO</td><td data-cell="company">Initech</td><td data-cell="status"><span class="st st-reply">Replied</span></td><td><a class="li-open" data-action="message" href="./linkedin.html" target="_blank">Message on LinkedIn ↗</a></td></tr>
-        <tr data-row="3"><td class="rownum">4</td><td class="name" data-cell="name">Diego Alvarez</td><td data-cell="role">Director of Sales</td><td data-cell="company">Umbrella</td><td data-cell="status"><span class="st st-none">Not contacted</span></td><td><a class="li-open" data-action="message" href="./linkedin.html" target="_blank">Message on LinkedIn ↗</a></td></tr>
-        <tr data-row="4"><td class="rownum">5</td><td class="name" data-cell="name">Hana Suzuki</td><td data-cell="role">Founder</td><td data-cell="company">Hooli</td><td data-cell="status"><span class="st st-none">Not contacted</span></td><td><a class="li-open" data-action="message" href="./linkedin.html" target="_blank">Message on LinkedIn ↗</a></td></tr>
-      </tbody>
+      <tbody id="leads"></tbody>
     </table>
     <div class="hint">Click a lead's “Message on LinkedIn ↗” to open their profile in a new tab — the row flips to “Messaged”.</div>
 
+    <script src="./leads.js"></script>
     <script>
-      // Selecting a row just highlights it (a clean, capturable click on this tab). No navigation.
-      document.getElementById("leads").addEventListener("click", (e) => {
-        const tr = e.target.closest("tr[data-row]");
-        if (!tr || e.target.closest("a")) return;
-        for (const r of document.querySelectorAll("tr.sel")) r.classList.remove("sel");
-        tr.classList.add("sel");
-      });
+      const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
+      const tbody = document.getElementById("leads");
+      const ST_CLASS = { none:"st-none", msg:"st-msg", reply:"st-reply" };
+      const ST_LABEL = { none:"Not contacted", msg:"Messaged", reply:"Replied" };
 
-      // Messaging a lead flips its Status to "Messaged" (unless they already Replied). Runs before the
-      // new tab opens, so the tracker visibly updates as outreach happens.
-      for (const a of document.querySelectorAll(".li-open")) {
-        a.addEventListener("click", () => {
+      // Render the lead rows from the shared dataset (same people as linkedin.html).
+      tbody.innerHTML = window.LEADS.map((p, idx) => `
+        <tr data-row="${idx}">
+          <td class="rownum">${idx + 1}</td>
+          <td class="name" data-cell="name">${esc(p.name)}</td>
+          <td data-cell="role">${esc(p.role)}</td>
+          <td data-cell="company">${esc(p.company)}</td>
+          <td data-cell="status"><span class="st ${ST_CLASS[p.status] || "st-none"}">${ST_LABEL[p.status] || "Not contacted"}</span></td>
+          <td><a class="li-open" data-action="message" href="./linkedin.html" target="_blank">Message on LinkedIn ↗</a></td>
+        </tr>`).join("");
+      document.getElementById("lead-count").textContent = `Q3 Outreach · ${window.LEADS.length} leads`;
+
+      // Row select (highlight) + Message flip — one delegated handler.
+      tbody.addEventListener("click", (e) => {
+        const a = e.target.closest(".li-open");
+        if (a) {
+          // Messaging a lead flips its Status to "Messaged" (unless already Replied), then the link opens.
           const cell = a.closest("tr").querySelector('[data-cell="status"] .st');
           if (cell && !cell.classList.contains("st-reply")) {
             cell.className = "st st-msg";
             cell.textContent = "Messaged";
           }
-        });
-      }
+          return;
+        }
+        const tr = e.target.closest("tr[data-row]");
+        if (!tr) return;
+        for (const r of tbody.querySelectorAll("tr.sel")) r.classList.remove("sel");
+        tr.classList.add("sel");
+      });
     </script>
   </body>
 </html>
