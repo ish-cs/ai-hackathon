@@ -31,7 +31,10 @@ function onMetrics(ev) {
   const tok = ev.tokensIn + ev.tokensOut;
   st.cum += tok;
   st.cumCost += ev.costUsd;
-  st.points.push({ cum: st.cum });
+  // Teaching (run 0) = the one-time cost. Make it the curve's BASELINE so Mimic's line starts elevated
+  // (the "paid once" height) instead of ramping up from zero; running rounds extend from there.
+  if (ev.phase === "teaching") st.points = [{ cum: st.cum }];
+  else st.points.push({ cum: st.cum });
 
   const cur = $(`cur-${ev.lane}`);
   cur.textContent = tok.toLocaleString();

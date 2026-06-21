@@ -5,11 +5,14 @@ import express from "express";
 import { WebSocketServer, WebSocket } from "ws";
 import type { DataRow, RawTrace, RunEvent } from "../shared/types";
 import { structure } from "../brain/structure";
+import { lastUsage } from "../brain/anthropic";
 import { saveWorkflow, getWorkflow, listWorkflows, getHistory, saveTrace } from "../brain/store";
 import { Recorder } from "./recorder";
 import { replay, closeLiveBrowsers } from "./player";
 import { stripSwitchTabs, applyTabs, breakForDemo, mergeHeal } from "./multitab";
-import { cost, type RaceEvent } from "./metrics";
+import { StagehandLane } from "./stagehand-lane";
+import { MimicLane } from "./mimic-lane";
+import { cost } from "./metrics";
 import { initSentry } from "./sentry";
 
 initSentry();
@@ -32,7 +35,7 @@ wss.on("connection", (ws) => {
   clients.add(ws);
   ws.on("close", () => clients.delete(ws));
 });
-function broadcast(event: RunEvent | RaceEvent): void {
+function broadcast(event: RunEvent): void {
   const msg = JSON.stringify(event);
   for (const ws of clients) if (ws.readyState === WebSocket.OPEN) ws.send(msg);
 }
@@ -70,7 +73,12 @@ app.post("/api/workflows", async (req, res) => {
     // Structure WITHOUT the switchTab actions (brain stays untouched), then stamp per-step tabs and
     // re-insert the switchTab steps in the runtime so the player can route a multi-tab replay.
     const wf = await structure(stripSwitchTabs(trace));
-    const tabbed = applyTabs(wf, trace);
+    // Capture the structure() call's REAL token usage = Mimic's one-time "teaching" cost, and stamp it
+    // on the workflow so /api/race can show it as run 0 (the meter's elevated starting point). lastUsage
+    // is the most-recent completeJSON usage; structure() is the only model call between here and now.
+    const tabbed = applyTabs(wf, trace) as typeof wf & { teachingTokensIn?: number; teachingTokensOut?: number };
+    tabbed.teachingTokensIn = lastUsage.tokensIn;
+    tabbed.teachingTokensOut = lastUsage.tokensOut;
     await saveWorkflow(tabbed);
     res.json(tabbed);
   } catch (e) {
@@ -145,42 +153,67 @@ app.post("/api/replay", async (req, res) => {
   res.json({ control: controlOk, healing: healingOk });
 });
 
-// ---- Cost race (MOCKED metrics; the real Stagehand lane lands later in runtime/stagehand-lane.ts) ----
-// Scripts a Mimic-vs-Stagehand race over the WS so ck's cost-race UI is demoable now. N rounds, break
-// at round K: Mimic heals ONCE (small cost) + re-caches; Stagehand re-reasons full price every run.
-const RACE_ROUNDS = 4;
-const RACE_BREAK_AT = 3;
-const jitter = (base: number, pct = 0.12) => Math.round(base * (1 + (Math.random() * 2 - 1) * pct));
+// ---- Cost race: REAL Stagehand (pure-LLM) vs Mimic (taught-once deterministic) over Browserbase ----
+// N rounds, break at round K. Stagehand pays full LLM cost EVERY round; Mimic is ~0 except one heal at
+// the break (then re-caches → free again). Both lanes report REAL token usage → the meter is real.
+// Config via env so the live-LinkedIn details (workflow id, burner Contexts, break target) stay out of
+// code: DEMO_WORKFLOW_ID, STAGEHAND_INSTRUCTION, DEMO_START_URL, BURNER_CONTEXT_STAGEHAND/_MIMIC,
+// BREAK_SELECTOR + BREAK_NEW_ID/_TEXT, RACE_ROUNDS/_BREAK_AT.
+const RACE_ROUNDS = Number(process.env.RACE_ROUNDS ?? 4);
+const RACE_BREAK_AT = Number(process.env.RACE_BREAK_AT ?? 3);
 
-app.post("/api/race", (_req, res) => {
-  res.json({ ok: true, rounds: RACE_ROUNDS, breakAt: RACE_BREAK_AT, mock: true });
+app.post("/api/race", async (req, res) => {
+  const body = (req.body ?? {}) as { workflowId?: string; row?: DataRow };
+  const workflowId = body.workflowId ?? process.env.DEMO_WORKFLOW_ID;
+  if (!workflowId) return res.status(400).json({ error: "no workflowId (set DEMO_WORKFLOW_ID or pass workflowId)" });
+  const history = await getHistory(workflowId);
+  const workflow = history.length ? history[0].wf : await getWorkflow(workflowId);
+  if (!workflow) return res.status(404).json({ error: "workflow not found" });
 
-  const metric = (
-    lane: "stagehand" | "mimic",
-    run: number,
-    phase: "teaching" | "running",
-    tIn: number,
-    tOut: number,
-    ms: number,
-  ): void => broadcast({ kind: "metrics", lane, run, phase, tokensIn: tIn, tokensOut: tOut, ms, costUsd: cost(tIn, tOut) });
+  // Same lead for both lanes: explicit row, else the workflow's example values.
+  const row = body.row ?? Object.fromEntries(workflow.parameters.map((p) => [p.name, p.example]));
+  const instruction = process.env.STAGEHAND_INSTRUCTION ?? workflow.task;
+  const startUrl = process.env.DEMO_START_URL ?? workflow.startUrl;
+  const breakSpec = process.env.BREAK_SELECTOR
+    ? { selector: process.env.BREAK_SELECTOR, newId: process.env.BREAK_NEW_ID, newText: process.env.BREAK_NEW_TEXT }
+    : undefined;
 
-  let t = 0;
-  const at = (ms: number, fn: () => void): void => void setTimeout(fn, (t += ms));
+  res.json({ ok: true, rounds: RACE_ROUNDS, breakAt: RACE_BREAK_AT });
 
-  // Teaching (run 0): Mimic pays once to compile the demonstration; Stagehand has no setup.
-  at(300, () => metric("mimic", 0, "teaching", jitter(3800), jitter(700), jitter(4200)));
-  at(150, () => metric("stagehand", 0, "teaching", 0, 0, 0));
+  // Orchestrate async; stream every event over the WS. A lane failure is logged, never crashes the server
+  // (a Stagehand misclick/timeout is fine — it only strengthens the cost contrast).
+  void (async () => {
+    // stealth:false — advancedStealth/Verified is Enterprise-only (403 on our Dev plan). We run basic
+    // fingerprinting + residential proxy, which held up through Context warming + reuse.
+    const stagehand = new StagehandLane({ startUrl, instruction, contextId: process.env.STAGEHAND_CONTEXT_ID, stealth: false });
+    const mimic = new MimicLane({ workflow, contextId: process.env.MIMIC_CONTEXT_ID, breakSpec });
+    try {
+      const [s, m] = await Promise.all([stagehand.open(), mimic.open()]);
+      if (s.liveViewUrl) broadcast({ kind: "liveview", lane: "stagehand", url: s.liveViewUrl });
+      if (m.liveViewUrl) broadcast({ kind: "liveview", lane: "mimic", url: m.liveViewUrl });
 
-  // Running rounds: Stagehand pays full LLM cost every run; Mimic ~0, except one heal at the break.
-  for (let r = 1; r <= RACE_ROUNDS; r++) {
-    const isBreak = r === RACE_BREAK_AT;
-    at(1500, () => metric("stagehand", r, "running", jitter(5200), jitter(900), jitter(22000)));
-    at(250, () =>
-      isBreak
-        ? metric("mimic", r, "running", jitter(1400), jitter(250), jitter(3500)) // heal once + re-cache
-        : metric("mimic", r, "running", 0, 0, jitter(1200)),                      // deterministic replay
-    );
-  }
+      // Teaching (run 0): Mimic's ONE-TIME cost = the structure() call that compiled the demonstration,
+      // captured + persisted on the workflow at record time (brain side). Emitting it starts Mimic's
+      // meter elevated — the honest "paid once, then free". Stagehand has no teaching → starts at 0.
+      const teach = workflow as { teachingTokensIn?: number; teachingTokensOut?: number };
+      if (teach.teachingTokensIn != null) {
+        const tin = teach.teachingTokensIn, tout = teach.teachingTokensOut ?? 0;
+        broadcast({ kind: "metrics", lane: "mimic", run: 0, phase: "teaching", tokensIn: tin, tokensOut: tout, ms: 0, costUsd: cost(tin, tout) });
+      }
+      broadcast({ kind: "metrics", lane: "stagehand", run: 0, phase: "teaching", tokensIn: 0, tokensOut: 0, ms: 0, costUsd: 0 });
+
+      for (let r = 1; r <= RACE_ROUNDS; r++) {
+        await Promise.all([
+          stagehand.runRound(row, r, broadcast),
+          mimic.runRound(row, r, broadcast, { breakNow: r === RACE_BREAK_AT }),
+        ]);
+      }
+    } catch (e) {
+      console.error("[race] failed:", (e as Error).message);
+    } finally {
+      await Promise.all([stagehand.close(), mimic.close()]);
+    }
+  })();
 });
 
 const PORT = Number(process.env.PORT ?? 3000);
