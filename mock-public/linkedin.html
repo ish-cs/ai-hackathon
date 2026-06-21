@@ -96,7 +96,7 @@
         <div class="brand"><span class="word">Linked</span><span class="badge">up</span></div>
         <div class="search-wrap">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
-          <input id="li-search" type="text" placeholder="Search by name" value="engineering leaders" />
+          <input id="li-search" type="text" placeholder="Search by name, role, company" value="engineering leaders" />
         </div>
         <div class="spacer"></div>
         <div class="navlinks">
@@ -111,77 +111,11 @@
     </div>
 
     <div class="wrap">
-      <!-- ───────── outreach targets: People search results ───────── -->
+      <!-- ───────── outreach targets: People search results (rendered from leads.js) ───────── -->
       <div class="col">
         <div class="card">
-          <div class="result-hd">People · <span id="li-count">5</span> results</div>
-          <div id="li-results">
-            <!-- Each result is an outreach target. data-name personalizes the message dock. -->
-            <div class="result" data-target data-name="Sarah Chen">
-              <div class="avatar av-sm"><span class="dot"></span></div>
-              <div class="body">
-                <div class="who">Sarah Chen<span class="badge-pill">3rd</span><span class="badge-pill">12 mutual</span></div>
-                <div class="sub">VP Engineering at Acme</div>
-                <div class="meta">San Francisco Bay Area</div>
-                <div class="row-actions">
-                  <button class="btn btn-ghost li-message" type="button">✉ Message</button>
-                  <button class="btn btn-quiet li-connect" type="button">+ Connect</button>
-                </div>
-              </div>
-            </div>
-
-            <div class="result" data-target data-name="Marcus Lee">
-              <div class="avatar av-sm"><span class="dot"></span></div>
-              <div class="body">
-                <div class="who">Marcus Lee<span class="badge-pill">2nd</span><span class="badge-pill">8 mutual</span></div>
-                <div class="sub">Head of Product at Globex</div>
-                <div class="meta">New York, NY</div>
-                <div class="row-actions">
-                  <button class="btn btn-ghost li-message" type="button">✉ Message</button>
-                  <button class="btn btn-quiet li-connect" type="button">+ Connect</button>
-                </div>
-              </div>
-            </div>
-
-            <div class="result" data-target data-name="Priya Patel">
-              <div class="avatar av-sm"><span class="dot"></span></div>
-              <div class="body">
-                <div class="who">Priya Patel<span class="badge-pill">3rd</span><span class="badge-pill">5 mutual</span></div>
-                <div class="sub">CTO at Initech</div>
-                <div class="meta">Austin, TX</div>
-                <div class="row-actions">
-                  <button class="btn btn-ghost li-message" type="button">✉ Message</button>
-                  <button class="btn btn-quiet li-connect" type="button">+ Connect</button>
-                </div>
-              </div>
-            </div>
-
-            <div class="result" data-target data-name="Diego Alvarez">
-              <div class="avatar av-sm"><span class="dot" style="background:#b0b0b0"></span></div>
-              <div class="body">
-                <div class="who">Diego Alvarez<span class="badge-pill">2nd</span><span class="badge-pill">21 mutual</span></div>
-                <div class="sub">Director of Sales at Umbrella</div>
-                <div class="meta">Chicago, IL</div>
-                <div class="row-actions">
-                  <button class="btn btn-ghost li-message" type="button">✉ Message</button>
-                  <button class="btn btn-quiet li-connect" type="button">+ Connect</button>
-                </div>
-              </div>
-            </div>
-
-            <div class="result" data-target data-name="Hana Suzuki">
-              <div class="avatar av-sm"><span class="dot"></span></div>
-              <div class="body">
-                <div class="who">Hana Suzuki<span class="badge-pill">3rd</span><span class="badge-pill">3 mutual</span></div>
-                <div class="sub">Founder at Hooli</div>
-                <div class="meta">Seattle, WA</div>
-                <div class="row-actions">
-                  <button class="btn btn-ghost li-message" type="button">✉ Message</button>
-                  <button class="btn btn-quiet li-connect" type="button">+ Connect</button>
-                </div>
-              </div>
-            </div>
-          </div>
+          <div class="result-hd">People · <span id="li-count">0</span> results</div>
+          <div id="li-results"></div>
         </div>
       </div>
 
@@ -215,38 +149,58 @@
     </div>
 
     <div class="flag" id="flag"></div>
+
+    <script src="./leads.js"></script>
     <script>
-      // ── Open the messaging dock for whichever target's Message is clicked ──
+      const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
+      const results = document.getElementById("li-results");
+
+      // Render the People list from the shared dataset. data-name personalizes the message dock.
+      function render(list) {
+        results.innerHTML = list.map((p) => `
+          <div class="result" data-target data-name="${esc(p.name)}">
+            <div class="avatar av-sm"><span class="dot"${p.online ? "" : ' style="background:#b0b0b0"'}></span></div>
+            <div class="body">
+              <div class="who">${esc(p.name)}<span class="badge-pill">${esc(p.conn)}</span><span class="badge-pill">${p.mutual} mutual</span></div>
+              <div class="sub">${esc(p.role)} at ${esc(p.company)}</div>
+              <div class="meta">${esc(p.loc)}</div>
+              <div class="row-actions">
+                <button class="btn btn-ghost li-message" type="button">✉ Message</button>
+                <button class="btn btn-quiet li-connect" type="button">+ Connect</button>
+              </div>
+            </div>
+          </div>`).join("");
+        document.getElementById("li-count").textContent = list.length;
+      }
+      render(window.LEADS);
+
+      // ── Open the messaging dock for whichever target's Message is clicked (event delegation) ──
       let activeName = "";
-      for (const btn of document.querySelectorAll(".li-message")) {
-        btn.addEventListener("click", () => {
-          const target = btn.closest("[data-target]");
+      results.addEventListener("click", (e) => {
+        const msg = e.target.closest(".li-message");
+        const con = e.target.closest(".li-connect");
+        if (msg) {
+          const target = msg.closest("[data-target]");
           activeName = (target && target.dataset.name) || "this person";
           document.getElementById("li-compose-who").textContent = activeName;
           document.getElementById("li-sent").classList.add("hidden");
           document.getElementById("li-compose").value = "";
           document.getElementById("li-compose-box").classList.remove("hidden");
           document.getElementById("li-compose").focus();
-        });
-      }
+        } else if (con) {
+          con.textContent = "✓ Pending"; con.disabled = true;
+        }
+      });
 
-      // Connect is decoration — flips to a pending state, no recorded step depends on it.
-      for (const btn of document.querySelectorAll(".li-connect")) {
-        btn.addEventListener("click", () => { btn.textContent = "✓ Pending"; btn.disabled = true; });
-      }
-
-      // Live search filter over the target list (realism; also lets a recorded run narrow the list).
+      // Live search over the target list (name / role / company). Default value shows everyone.
       const search = document.getElementById("li-search");
       search.addEventListener("input", () => {
         const term = search.value.trim().toLowerCase();
-        let shown = 0;
-        for (const r of document.querySelectorAll("[data-target]")) {
-          const name = (r.dataset.name || "").toLowerCase();
-          const hit = !term || name.includes(term) || term === "engineering leaders";
-          r.classList.toggle("hidden", !hit);
-          if (hit) shown++;
-        }
-        document.getElementById("li-count").textContent = shown;
+        if (term === "" || term === "engineering leaders") return render(window.LEADS);
+        render(window.LEADS.filter((p) =>
+          p.name.toLowerCase().includes(term) ||
+          p.role.toLowerCase().includes(term) ||
+          p.company.toLowerCase().includes(term)));
       });
 
       // ── Kill shot: ?break=1 renames the Send button (id + text) so #li-send no longer matches.
