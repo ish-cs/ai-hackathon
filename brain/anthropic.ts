@@ -12,6 +12,24 @@ function client(): Anthropic {
   return _client;
 }
 
+// ---- Token-usage side-channel (Cost Race meter) ----
+// completeJSON's return type stays `Promise<T>`, so structure()/heal() and every other brain caller
+// are UNCHANGED. The real per-call usage is exposed here instead, for runtime/metrics.ts to price.
+export interface TokenUsage {
+  tokensIn: number;
+  tokensOut: number;
+  model: string;
+}
+/** Usage of the most recent completeJSON call. Read it right after awaiting structure()/heal(). */
+export let lastUsage: TokenUsage = { tokensIn: 0, tokensOut: 0, model: MODEL };
+type UsageListener = (u: TokenUsage) => void;
+const usageListeners = new Set<UsageListener>();
+/** Subscribe to per-call token usage for the Cost Race meter. Returns an unsubscribe fn. */
+export function onUsage(fn: UsageListener): () => void {
+  usageListeners.add(fn);
+  return () => void usageListeners.delete(fn);
+}
+
 export interface JSONCallOpts {
   system: string;
   user: string;
@@ -38,6 +56,14 @@ export async function completeJSON<T>(opts: JSONCallOpts): Promise<T> {
     system: opts.system,
     messages: [{ role: "user", content: opts.user }],
   });
+
+  // Record REAL usage for the Cost Race meter (additive — does not change what we return).
+  lastUsage = {
+    tokensIn: res.usage?.input_tokens ?? 0,
+    tokensOut: res.usage?.output_tokens ?? 0,
+    model: MODEL,
+  };
+  for (const fn of usageListeners) fn(lastUsage);
 
   const block = res.content.find((b) => b.type === "text");
   if (!block || block.type !== "text") {
