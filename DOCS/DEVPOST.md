@@ -1,6 +1,6 @@
 # Devpost Submission: paste-ready
 
-> Copy each section into the matching Devpost field. Project name + both teammates must be on the **draft by Sat midnight** or it isn't judged. Two honest decisions flagged at the bottom (Band, Browserbase). Don't claim either unless we actually integrate it.
+> Copy each section into the matching Devpost field. Project name + both teammates must be on the **draft by Sat midnight** or it isn't judged. One honest decision flagged at the bottom (Band). Don't claim it unless we actually integrate it.
 
 ---
 
@@ -30,7 +30,7 @@ The core that makes it real: when a step fails because the site changed, Mimic d
 - **Record**: Playwright captures the user's clicks, inputs, and navigation, plus the page context (DOM, element attributes, semantic intent) at each step.
 - **Structure**: Claude (**Opus 4.8**, structured JSON outputs) converts the raw trace into a parameterized workflow, detecting variables vs. fixed actions.
 - **Store**: the workflow and its full version history live in **Redis** as genuine *agent memory*, not a cache, but the persistent record the healer reads and writes back to.
-- **Replay**: the runtime executes the saved workflow against new data, unattended, streaming each step to the UI over WebSockets.
+- **Replay**: the runtime executes the saved workflow against new data, unattended, on **Browserbase** cloud browsers (embedded live in the UI as two side-by-side iframes), streaming each step to the UI over WebSockets.
 - **Heal**: on a failure, Claude re-grounds the element by its stored semantic intent, patches the step, retries, and writes the upgraded workflow back to Redis as a new version. **Sentry** captures the failure-and-recovery moment. Failure is literally our product, so we observe it.
 
 Every replay runs **two lanes side by side**: a control lane with healing off (stays brittle, always crashes on the break) and a healing lane that re-grounds live. That's the demo's kill shot, and it's the actual code path, not a mockup.
@@ -43,9 +43,9 @@ We split the build across one clean contract: the **Brain** (Claude intent-extra
 - **Keeping the recorded selector brittle on purpose.** The structuring step kept "helpfully" upgrading our brittle selector to a stable one, which meant our staged break wouldn't break it, so nothing would heal. We had to make structuring preserve the recorded selector verbatim; the healer is the *only* thing allowed to upgrade it.
 
 ## Accomplishments that we're proud of
-- The full loop works end to end on real infrastructure: a real recorded trace → Claude → Redis → a real break → a real heal → fix written back, verified against live Claude and a live cloud Redis.
+- The full loop works end to end on real infrastructure: a real recorded trace → Claude → Redis → a real break → a real heal → fix written back, verified against live Claude, a live cloud Redis, and live Browserbase cloud browsers.
 - The healer re-grounds a renamed/moved control by intent at high confidence **and** correctly refuses when there's nothing valid to click.
-- Three sponsor technologies are load-bearing and proven, not bolted on: Claude is the brain, Redis is the agent memory, Sentry catches the exact failure that triggers a heal.
+- Four sponsor technologies are load-bearing and proven, not bolted on: Claude is the brain, Redis is the agent memory, Browserbase runs the agent's cloud browsers, and Sentry catches the exact failure that triggers a heal.
 
 ## What we learned
 - Self-healing is only as trustworthy as its willingness to fail loudly. The "refuse to guess" behavior turned out to be more important than the heal itself.
@@ -59,7 +59,7 @@ We split the build across one clean contract: the **Brain** (Claude intent-extra
 - Confidence thresholds with a human-in-the-loop fallback when the healer isn't sure.
 
 ## Built With
-`typescript` · `node.js` · `claude-opus-4-8` · `anthropic` · `redis` · `sentry` · `playwright` · `express` · `websockets` · `html` · `css`
+`typescript` · `node.js` · `claude-opus-4-8` · `anthropic` · `redis` · `browserbase` · `sentry` · `playwright` · `express` · `websockets` · `html` · `css`
 
 ## Try it out (links)
 - GitHub: (repo link)
@@ -67,8 +67,9 @@ We split the build across one clean contract: the **Brain** (Claude intent-extra
 
 ---
 
-## ⚠️ Two honest decisions before submitting: don't overclaim
+## ⚠️ One honest decision before submitting: don't overclaim
 - **Band** ($1k): the prize needs our agents *actually running on the Band platform in shared rooms*. Right now our three agents are logical modules in one process, not Band agents. Either we pay the integration tax and then add `band` to Built With + a paragraph, or we don't claim Band at all. **Currently: not integrated → not claimed in this draft.**
-- **Browserbase**: the prize needs the engine *powered by Browserbase/Stagehand*. We built on local Playwright. Either we swap the browser layer (adds live-demo network risk) and claim it, or we don't. **Currently: local Playwright → not claimed.**
 
-Everything claimed above (Anthropic, Redis, Sentry, Playwright) is real and proven today.
+**Browserbase — CLAIMED.** The agent's replay + self-healing run on Browserbase cloud browsers, embedded live in-app as side-by-side iframes; verified end-to-end (teach local → save to Redis → cloud replay + heal). Teaching a new workflow is a one-time local setup step; the autonomous agent work runs on the cloud.
+
+Everything claimed above (Anthropic, Redis, Browserbase, Sentry, Playwright) is real and proven today.

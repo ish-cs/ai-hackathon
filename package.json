@@ -13,11 +13,14 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.105.0",
+    "@browserbasehq/sdk": "^2.14.1",
+    "@browserbasehq/stagehand": "^3.6.0",
     "@sentry/node": "^10.59.0",
     "express": "^5.2.1",
     "playwright": "^1.61.0",
     "redis": "^6.0.0",
-    "ws": "^8.21.0"
+    "ws": "^8.21.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",

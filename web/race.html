@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mimic — Cost Race</title>
+    <style>
+      :root { --bg:#0c0d10; --line:#262a33; --ink:#e8eaed; --dim:#8b909c;
+              --stage:#ff7a59; --mimic:#39d98a; }
+      * { box-sizing: border-box; }
+      html, body { height:100%; margin:0; }
+      body { background:var(--bg); color:var(--ink); display:flex; flex-direction:column;
+             font:14px/1.5 ui-sans-serif,system-ui,sans-serif; }
+      .topbar { display:flex; justify-content:center; padding:10px; border-bottom:1px solid var(--line); }
+      button { background:var(--mimic); color:#000; border:none; border-radius:8px;
+               padding:10px 24px; font-size:15px; font-weight:700; cursor:pointer; }
+      button:disabled { opacity:.45; cursor:default; }
+      .split { flex:1; display:grid; grid-template-columns:1fr 1fr; gap:1px; background:var(--line); min-height:0; }
+      .half { background:var(--bg); display:flex; flex-direction:column; min-height:0; padding:14px 16px; gap:12px; }
+      .label { font-size:18px; font-weight:800; letter-spacing:.02em; text-align:center; }
+      .half.stage .label { color:var(--stage); }
+      .half.mimic .label { color:var(--mimic); }
+      .label small { display:block; font-size:11px; font-weight:500; color:var(--dim);
+                     letter-spacing:.04em; text-transform:uppercase; margin-top:2px; }
+      .window { flex:1; min-height:120px; border:1px solid var(--line); border-radius:10px; background:#000;
+                overflow:hidden; display:flex; align-items:center; justify-content:center; }
+      .window iframe { width:100%; height:100%; border:0; }
+      .window .ph { color:var(--dim); font-size:12px; text-align:center; padding:0 20px; }
+      .counter { display:flex; align-items:baseline; justify-content:center; gap:10px; }
+      .counter .num { font-family:ui-monospace,monospace; font-size:34px; font-weight:800; font-variant-numeric:tabular-nums;
+                      transition:transform .12s ease; }
+      .counter .num.bump { transform:scale(1.12); }
+      .half.stage .counter .num { color:var(--stage); }
+      .half.mimic .counter .num { color:var(--mimic); }
+      .counter .cap { font-size:11px; color:var(--dim); text-transform:uppercase; letter-spacing:.06em; }
+      .counter .cum { font-family:ui-monospace,monospace; font-size:12px; color:var(--dim); }
+      canvas { width:100%; height:130px; display:block; }
+    </style>
+  </head>
+  <body>
+    <div class="topbar"><button id="start">▶ Start race</button></div>
+    <div class="split">
+      <div class="half stage">
+        <div class="label">Stagehand<small>pure LLM agent · reasons every run</small></div>
+        <div class="window" id="win-stagehand"><div class="ph">live view connects when the race starts</div></div>
+        <div class="counter"><span class="num" id="cur-stagehand">0</span><span class="cap">tokens · this run</span></div>
+        <div class="counter"><span class="cum" id="cum-stagehand">Σ 0 tok · $0.0000</span></div>
+        <canvas id="g-stagehand"></canvas>
+      </div>
+      <div class="half mimic">
+        <div class="label">Mimic<small>taught once · deterministic + heals</small></div>
+        <div class="window" id="win-mimic"><div class="ph">live view connects when the race starts</div></div>
+        <div class="counter"><span class="num" id="cur-mimic">0</span><span class="cap">tokens · this run</span></div>
+        <div class="counter"><span class="cum" id="cum-mimic">Σ 0 tok · $0.0000</span></div>
+        <canvas id="g-mimic"></canvas>
+      </div>
+    </div>
+    <script src="/race.js"></script>
+  </body>
+</html>

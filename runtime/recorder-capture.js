@@ -4,7 +4,16 @@
 // Captures the user's actions (field change -> input/select, click -> click/submit) and posts
 // each one back to the Node recorder via the exposed window.__record binding.
 (() => {
-  const post = (a) => window.__record(a);
+  // Idempotent: this runs via addInitScript (fresh navigations) AND via a post-goto evaluate
+  // (needed over Browserbase CDP, where the pre-existing page's navigation skips init scripts).
+  // The guard ensures listeners attach exactly once either way.
+  if (window.__mimicCaptureAttached) return;
+  window.__mimicCaptureAttached = true;
+  // Store actions in an in-page array the recorder reads via page.evaluate on stop. Avoids
+  // Playwright's exposeBinding, which installs but isn't callable over Browserbase CDP (the binding
+  // wrapper throws "is not a function"). A plain array + evaluate read works identically local + cloud.
+  window.__mimicActions = window.__mimicActions || [];
+  const post = (a) => window.__mimicActions.push(a);
 
   const selectorFor = (el) => {
     if (el.id) return `#${CSS.escape(el.id)}`;
