@@ -28,9 +28,10 @@ const LANE_WINDOW = { width: 780, height: 960, y: 40 };
 const LANE_X: Record<"control" | "healing", number> = { control: 24, healing: 824 };
 
 export async function openBrowser(opts: OpenOpts): Promise<OpenedBrowser> {
-  // Live-teach over Browserbase CDP doesn't capture reliably (PARKED — see DOCS/BROWSERBASE.md), so
-  // RECORDING always runs locally (instant, free, capture works). Replay + heal — the agent's real
-  // cloud web automation — still honors ENGINE, so the Browserbase claim holds. Teach-local → run-cloud.
+  // RECORDING runs locally for a snappy teach UX (demonstrate in a responsive local window). Capture
+  // itself is engine-agnostic and verified on Browserbase too (array-based, see recorder-capture.js),
+  // so flipping teach to the cloud is just returning ENGINE here — kept local by choice. Replay + heal
+  // — the agent's real cloud web automation — honor ENGINE, so the Browserbase claim holds.
   const engine: Engine = opts.lane === "record" ? "local" : ENGINE;
   return engine === "browserbase" ? openBrowserbase(opts) : openLocal(opts);
 }

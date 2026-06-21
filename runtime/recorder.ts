@@ -42,10 +42,6 @@ export class Recorder {
     this.opened = await openBrowser({ lane: "record", interactive: true });
     this.page = this.opened.page;
 
-    await this.page.exposeBinding("__record", (_src, action: RawAction) => {
-      this.actions.push(action);
-    });
-
     // Capture logic is injected from a PLAIN JS file, not an inline function. tsx/esbuild
     // compiles inline addInitScript callbacks with keepNames, wrapping inner arrows in a
     // module-scoped __name() helper; Playwright serializes only the function, so __name is
@@ -63,6 +59,10 @@ export class Recorder {
 
   async stop(task: string): Promise<RawTrace> {
     if (!this.opened) throw new Error("not recording");
+    // Pull captured actions out of the in-page array (engine-agnostic; works over Browserbase CDP,
+    // where exposeBinding is unreliable). Read BEFORE closing the browser.
+    const raw = this.page ? ((await this.page.evaluate("JSON.stringify(window.__mimicActions || [])")) as string) : "[]";
+    this.actions = JSON.parse(raw) as RawAction[];
     const trace: RawTrace = {
       traceId: `trace_${Date.now()}`,
       task,
