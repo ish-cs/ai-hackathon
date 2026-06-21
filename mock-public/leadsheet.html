@@ -25,6 +25,14 @@
       .li-open { color:#0a66c2; text-decoration:none; font-weight:600; white-space:nowrap; }
       .li-open:hover { text-decoration:underline; }
       .hint { padding:10px 16px; color:var(--dim); font-size:12px; border-top:1px solid var(--line); }
+
+      /* ---- status pill ---- */
+      .st { display:inline-flex; align-items:center; gap:6px; font-size:12px; padding:2px 9px;
+            border-radius:12px; font-weight:500; white-space:nowrap; }
+      .st::before { content:""; width:8px; height:8px; border-radius:50%; background:currentColor; }
+      .st-none  { color:#80868b; background:#f1f3f4; }
+      .st-msg   { color:#1a73e8; background:#e8f0fe; }
+      .st-reply { color:#188038; background:#e6f4ea; }
     </style>
   </head>
   <body>
@@ -36,17 +44,17 @@
 
     <table>
       <thead>
-        <tr><th class="rownum"></th><th>A — Name</th><th>B — Role</th><th>C — Company</th><th>D — Action</th></tr>
+        <tr><th class="rownum"></th><th>A — Name</th><th>B — Role</th><th>C — Company</th><th>D — Status</th><th>E — Action</th></tr>
       </thead>
       <tbody id="leads">
-        <tr data-row="0"><td class="rownum">1</td><td class="name" data-cell="name">Sarah Chen</td><td data-cell="role">VP Engineering</td><td data-cell="company">Acme</td><td><a class="li-open" data-action="message" href="./linkedin.html" target="_blank">Message on LinkedIn ↗</a></td></tr>
-        <tr data-row="1"><td class="rownum">2</td><td class="name" data-cell="name">Marcus Lee</td><td data-cell="role">Head of Product</td><td data-cell="company">Globex</td><td><a class="li-open" data-action="message" href="./linkedin.html" target="_blank">Message on LinkedIn ↗</a></td></tr>
-        <tr data-row="2"><td class="rownum">3</td><td class="name" data-cell="name">Priya Patel</td><td data-cell="role">CTO</td><td data-cell="company">Initech</td><td><a class="li-open" data-action="message" href="./linkedin.html" target="_blank">Message on LinkedIn ↗</a></td></tr>
-        <tr data-row="3"><td class="rownum">4</td><td class="name" data-cell="name">Diego Alvarez</td><td data-cell="role">Director of Sales</td><td data-cell="company">Umbrella</td><td><a class="li-open" data-action="message" href="./linkedin.html" target="_blank">Message on LinkedIn ↗</a></td></tr>
-        <tr data-row="4"><td class="rownum">5</td><td class="name" data-cell="name">Hana Suzuki</td><td data-cell="role">Founder</td><td data-cell="company">Hooli</td><td><a class="li-open" data-action="message" href="./linkedin.html" target="_blank">Message on LinkedIn ↗</a></td></tr>
+        <tr data-row="0"><td class="rownum">1</td><td class="name" data-cell="name">Sarah Chen</td><td data-cell="role">VP Engineering</td><td data-cell="company">Acme</td><td data-cell="status"><span class="st st-none">Not contacted</span></td><td><a class="li-open" data-action="message" href="./linkedin.html" target="_blank">Message on LinkedIn ↗</a></td></tr>
+        <tr data-row="1"><td class="rownum">2</td><td class="name" data-cell="name">Marcus Lee</td><td data-cell="role">Head of Product</td><td data-cell="company">Globex</td><td data-cell="status"><span class="st st-msg">Messaged</span></td><td><a class="li-open" data-action="message" href="./linkedin.html" target="_blank">Message on LinkedIn ↗</a></td></tr>
+        <tr data-row="2"><td class="rownum">3</td><td class="name" data-cell="name">Priya Patel</td><td data-cell="role">CTO</td><td data-cell="company">Initech</td><td data-cell="status"><span class="st st-reply">Replied</span></td><td><a class="li-open" data-action="message" href="./linkedin.html" target="_blank">Message on LinkedIn ↗</a></td></tr>
+        <tr data-row="3"><td class="rownum">4</td><td class="name" data-cell="name">Diego Alvarez</td><td data-cell="role">Director of Sales</td><td data-cell="company">Umbrella</td><td data-cell="status"><span class="st st-none">Not contacted</span></td><td><a class="li-open" data-action="message" href="./linkedin.html" target="_blank">Message on LinkedIn ↗</a></td></tr>
+        <tr data-row="4"><td class="rownum">5</td><td class="name" data-cell="name">Hana Suzuki</td><td data-cell="role">Founder</td><td data-cell="company">Hooli</td><td data-cell="status"><span class="st st-none">Not contacted</span></td><td><a class="li-open" data-action="message" href="./linkedin.html" target="_blank">Message on LinkedIn ↗</a></td></tr>
       </tbody>
     </table>
-    <div class="hint">Click a lead's “Message on LinkedIn ↗” to open their profile in a new tab.</div>
+    <div class="hint">Click a lead's “Message on LinkedIn ↗” to open their profile in a new tab — the row flips to “Messaged”.</div>
 
     <script>
       // Selecting a row just highlights it (a clean, capturable click on this tab). No navigation.
@@ -56,6 +64,18 @@
         for (const r of document.querySelectorAll("tr.sel")) r.classList.remove("sel");
         tr.classList.add("sel");
       });
+
+      // Messaging a lead flips its Status to "Messaged" (unless they already Replied). Runs before the
+      // new tab opens, so the tracker visibly updates as outreach happens.
+      for (const a of document.querySelectorAll(".li-open")) {
+        a.addEventListener("click", () => {
+          const cell = a.closest("tr").querySelector('[data-cell="status"] .st');
+          if (cell && !cell.classList.contains("st-reply")) {
+            cell.className = "st st-msg";
+            cell.textContent = "Messaged";
+          }
+        });
+      }
     </script>
   </body>
 </html>
