@@ -1,6 +1,6 @@
 import { type Page } from "playwright";
 import type { DataRow, RunEvent, StepResult, Workflow, WorkflowStep, HealResult } from "../shared/types";
-import { openBrowser, type OpenedBrowser } from "./browser";
+import { openBrowser, liveViewForTab, type OpenedBrowser } from "./browser";
 import { heal } from "../brain/heal";
 import { captureFailure } from "./sentry";
 
@@ -109,25 +109,110 @@ async function liveDom(page: Page): Promise<string> {
   } catch {
     /* no form — fall through */
   }
-  return (await page.content()).slice(0, 8000);
+  try {
+    return (await page.content()).slice(0, 8000);
+  } catch {
+    return ""; // never throw from liveDom — the caller is already handling a step failure
+  }
 }
 
 export async function replay(wf: Workflow, row: DataRow, opts: ReplayOpts): Promise<boolean> {
   opts.emit({ kind: "run_start", lane: opts.lane, workflowId: wf.workflowId, row });
   const opened = await openBrowser({ lane: opts.lane });
   liveBrowsers.add(opened); // reaped on the next run by closeLiveBrowsers() — local window OR cloud session
-  const page = opened.page;
-  // Browserbase: hand the UI this lane's live-view URL so it can embed the cloud browser as an iframe.
-  if (opened.liveViewUrl) opts.emit({ kind: "liveview", lane: opts.lane, url: opened.liveViewUrl });
+  const context = opened.page.context();
+
+  // Multi-tab: route each step to its tab, opening tabs on demand. tab 0 = the initial page, so a
+  // single-tab workflow (the original demo) runs exactly as before — every step routes to page 0.
+  const pages = new Map<number, Page>([[0, opened.page]]);
+  const tabUrls = new Map<number, string>([[0, wf.startUrl]]);
+  let active: Page = opened.page;
   let ok = true;
 
+  // Emit the active tab's live-view so the UI iframe follows it (Browserbase only; local → no-op).
+  const followTab = async (tabIndex: number): Promise<void> => {
+    const url = await liveViewForTab(opened, tabIndex);
+    if (url) opts.emit({ kind: "liveview", lane: opts.lane, url });
+  };
+  // Make a tab active: bring to front + follow it in the UI.
+  const focusTab = async (tabIndex: number, page: Page): Promise<void> => {
+    active = page;
+    await page.bringToFront().catch(() => {});
+    await followTab(tabIndex);
+  };
+  // Open a tab (newPage + goto + label) if not open yet; return its page.
+  const ensureTab = async (tabIndex: number, url: string | null): Promise<Page> => {
+    const existing = pages.get(tabIndex);
+    if (existing) return existing;
+    // Adopt a tab a click already opened (target=_blank) so we don't open a duplicate; else open by URL.
+    const mapped = new Set(pages.values());
+    let orphan = context.pages().find((pg) => !mapped.has(pg));
+    if (!orphan) {
+      // a click may still be opening it — wait briefly for the popup before opening one ourselves
+      try {
+        orphan = await context.waitForEvent("page", { timeout: 2000 });
+      } catch {
+        /* no popup — open by URL below */
+      }
+    }
+    if (orphan) {
+      pages.set(tabIndex, orphan);
+      tabUrls.set(tabIndex, url ?? orphan.url());
+      try {
+        await orphan.waitForLoadState("domcontentloaded", { timeout: STEP_TIMEOUT * 2 });
+      } catch {
+        /* best effort */
+      }
+      await injectLaneLabel(orphan, opts.lane);
+      return orphan;
+    }
+    const target = url ?? tabUrls.get(tabIndex) ?? wf.startUrl;
+    const p = await context.newPage();
+    pages.set(tabIndex, p);
+    tabUrls.set(tabIndex, target);
+    await p.goto(target, { timeout: STEP_TIMEOUT * 3 });
+    await injectLaneLabel(p, opts.lane);
+    return p;
+  };
+
   try {
-    await page.goto(wf.startUrl, { timeout: STEP_TIMEOUT * 3 });
-    await injectLaneLabel(page, opts.lane); // label the window the moment it loads
+    await opened.page.goto(wf.startUrl, { timeout: STEP_TIMEOUT * 3 });
+    await injectLaneLabel(opened.page, opts.lane); // label the window the moment it loads
+    await followTab(0); // initial live-view (Browserbase)
 
     for (const step of wf.steps) {
-      const value = valueFor(step, row);
+      const tab = step.tab ?? 0;
       const started = Date.now();
+
+      // switchTab: bring the destination tab to front (opening it by URL if needed). No element to heal.
+      if (step.action === "switchTab") {
+        try {
+          const p = await ensureTab(tab, step.valueLiteral);
+          await focusTab(tab, p);
+          opts.emit({
+            kind: "step",
+            lane: opts.lane,
+            result: stepResult(wf, step, "ok", step.selector || `tab:${tab}`, null, null, Date.now() - started),
+          });
+        } catch (err) {
+          const error = err instanceof Error ? err.message : String(err);
+          opts.emit({
+            kind: "step",
+            lane: opts.lane,
+            result: stepResult(wf, step, "failed", `tab:${tab}`, error, null, Date.now() - started),
+          });
+          captureFailure("switchTab failed", { workflowId: wf.workflowId, stepId: step.stepId, error });
+          ok = false;
+          break;
+        }
+        continue;
+      }
+
+      // Normal step → route to its tab (opened by a prior switchTab; fall back to the active tab).
+      const page = pages.get(tab) ?? active;
+      if (page !== active) await focusTab(tab, page);
+
+      const value = valueFor(step, row);
       try {
         await execute(page, step, step.selector, value);
         opts.emit({
@@ -156,7 +241,7 @@ export async function replay(wf: Workflow, row: DataRow, opts: ReplayOpts): Prom
           break;
         }
 
-        // Healing lane: re-ground by intent, retry, verify — bounded attempts.
+        // Healing lane: re-ground by intent on the ACTIVE tab, retry, verify — bounded attempts.
         const recovered = await tryHeal(page, wf, step, value, opts);
         if (!recovered) {
           captureFailure("step failed (heal exhausted)", { workflowId: wf.workflowId, stepId: step.stepId, error });
@@ -170,13 +255,14 @@ export async function replay(wf: Workflow, row: DataRow, opts: ReplayOpts): Prom
         });
       }
     }
-  } catch {
+  } catch (err) {
     ok = false; // unexpected error (e.g. the initial navigation) → failure for the visual verdict
+    const error = err instanceof Error ? err.message : String(err);
+    captureFailure("replay crashed before verdict", { workflowId: wf.workflowId, lane: opts.lane, error });
   }
 
-  // Green frame on success, red on failure — and DON'T close. The window lingers showing its
-  // verdict beside the other lane; the next /api/replay reaps it via closeLiveBrowsers().
-  await markLaneResult(page, ok);
+  // Verdict on the tab the run ended on; lanes linger (no close) so the audience sees red vs green.
+  await markLaneResult(active, ok);
 
   opts.emit({ kind: "run_done", lane: opts.lane, workflowId: wf.workflowId, ok });
   return ok;

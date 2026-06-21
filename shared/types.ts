@@ -2,7 +2,7 @@
 // This file IS the contract — change it here, together, before changing any consumer.
 // Prose spec + rationale: ../DOCS/CONTRACT.md
 
-export type ActionType = "click" | "input" | "navigate" | "select" | "submit";
+export type ActionType = "click" | "input" | "navigate" | "select" | "submit" | "switchTab";
 
 /** What the recorder captured about the element a step targets. */
 export interface ElementContext {
@@ -23,9 +23,11 @@ export interface ElementContext {
 export interface RawAction {
   type: ActionType;
   timestamp: number;
-  /** For input/select; null otherwise. */
+  /** For input/select; null otherwise. For switchTab: the destination tab's URL. */
   value: string | null;
   target: ElementContext;
+  /** Tab index this action ran on (for switchTab, the destination index). Absent → 0 (single-tab). */
+  tab?: number;
 }
 
 /** Recorder → Brain. The unstructured demonstration. */
@@ -69,8 +71,14 @@ export interface WorkflowStep {
   fallbackHints: FallbackHints;
   /** Parameter name to pull the value from, OR null for fixed actions. */
   valueFrom: string | null;
-  /** Literal value for fixed actions, OR null when valueFrom is set. */
+  /** Literal value for fixed actions, OR null when valueFrom is set. For switchTab: the destination tab's URL. */
   valueLiteral: string | null;
+  /**
+   * Tab index this step runs on. Absent → 0, so single-tab workflows (the original demo) replay
+   * unchanged. For a "switchTab" step this is the DESTINATION tab index; valueLiteral carries that
+   * tab's URL so the player can open it (context.newPage + goto) if it isn't open yet.
+   */
+  tab?: number;
   healHistory: HealRecord[];
 }
 

@@ -37,20 +37,25 @@ export async function openBrowser(opts: OpenOpts): Promise<OpenedBrowser> {
 }
 
 async function openLocal(opts: OpenOpts): Promise<OpenedBrowser> {
-  // Recorder: a plain headed window the user demonstrates in.
+  // Use an EXPLICIT context (not browser.newPage(), whose implicit context rejects context.newPage()
+  // with "Please use browser.newContext()") so the recorder/player can open additional tabs for the
+  // multi-tab flow via context.newPage().
   if (opts.lane === "record") {
+    // Recorder: a plain headed window the user demonstrates in.
     const browser = await chromium.launch({ headless: false });
-    const page = await browser.newPage();
+    const context = await browser.newContext();
+    const page = await context.newPage();
     return { browser, page, close: async () => void (await browser.close().catch(() => {})) };
   }
-  // Replay lane: a positioned window so control + healing sit side by side; viewport:null → the
-  // page fills the OS window.
+  // Replay lane: a positioned window so control + healing sit side by side; viewport:null → the page
+  // fills the OS window.
   const x = LANE_X[opts.lane];
   const browser = await chromium.launch({
     headless: false,
     args: [`--window-position=${x},${LANE_WINDOW.y}`, `--window-size=${LANE_WINDOW.width},${LANE_WINDOW.height}`],
   });
-  const page = await browser.newPage({ viewport: null });
+  const context = await browser.newContext({ viewport: null });
+  const page = await context.newPage();
   return { browser, page, close: async () => void (await browser.close().catch(() => {})) };
 }
 
@@ -78,4 +83,22 @@ async function openBrowserbase(opts: OpenOpts): Promise<OpenedBrowser> {
     sessionId: session.id,
     close: async () => void (await browser.close().catch(() => {})),
   };
+}
+
+/**
+ * Per-tab live-view URL for the UI iframe (Browserbase only). The player calls this on a switchTab so
+ * the embedded iframe follows the active tab. Local / no session → undefined (no iframe).
+ */
+export async function liveViewForTab(opened: OpenedBrowser, tabIndex: number): Promise<string | undefined> {
+  if (ENGINE !== "browserbase" || !opened.sessionId) return undefined;
+  const apiKey = process.env.BROWSERBASE_API_KEY;
+  if (!apiKey) return undefined;
+  try {
+    const bb = new Browserbase({ apiKey });
+    const links = await bb.sessions.debug(opened.sessionId);
+    const pages = (links as { pages?: Array<{ debuggerFullscreenUrl?: string }> }).pages;
+    return pages?.[tabIndex]?.debuggerFullscreenUrl ?? links.debuggerFullscreenUrl;
+  } catch {
+    return undefined;
+  }
 }

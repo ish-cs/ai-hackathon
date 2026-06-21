@@ -3,6 +3,7 @@
 // Run: tsx --env-file=.env browserbase-e2e-test.ts
 import { Recorder } from "./runtime/recorder";
 import { structure } from "./brain/structure";
+import { stripSwitchTabs, applyTabs } from "./runtime/multitab";
 import { saveWorkflow } from "./brain/store";
 import { replay, closeLiveBrowsers } from "./runtime/player";
 import type { DataRow, RunEvent } from "./shared/types";
@@ -24,9 +25,10 @@ const trace = await rec.stop("copy customer into form");
 console.log(`1) taught locally: ${trace.actions.length} actions captured`);
 
 // 2) STRUCTURE + SAVE to Redis (the agent's memory).
-const wf = await structure(trace);
+const wf = applyTabs(await structure(stripSwitchTabs(trace)), trace); // mirror the server's multi-tab path
 await saveWorkflow(wf);
-console.log(`2) structured + saved: ${wf.workflowId} v${wf.version}, ${wf.steps.length} steps, ${wf.parameters.length} params`);
+const switchSteps = wf.steps.filter((s) => s.action === "switchTab").length;
+console.log(`2) structured + saved: ${wf.workflowId} v${wf.version}, ${wf.steps.length} steps, ${wf.parameters.length} params, switchTab=${switchSteps} (expect 0)`);
 
 // 3) REPLAY both lanes on Browserbase against the broken public mock.
 const row: DataRow = { customerName: "Globex Corporation", customerEmail: "ap@globex.com" };

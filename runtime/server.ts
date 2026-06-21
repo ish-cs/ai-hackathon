@@ -3,11 +3,12 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import express from "express";
 import { WebSocketServer, WebSocket } from "ws";
-import type { DataRow, RunEvent } from "../shared/types";
+import type { DataRow, RawTrace, RunEvent } from "../shared/types";
 import { structure } from "../brain/structure";
 import { saveWorkflow, getWorkflow, listWorkflows, getHistory, saveTrace } from "../brain/store";
 import { Recorder } from "./recorder";
 import { replay, closeLiveBrowsers } from "./player";
+import { stripSwitchTabs, applyTabs, breakForDemo } from "./multitab";
 import { initSentry } from "./sentry";
 
 initSentry();
@@ -63,9 +64,13 @@ app.post("/api/record/stop", async (req, res) => {
 // ---- Structure + store ----
 app.post("/api/workflows", async (req, res) => {
   try {
-    const wf = await structure(req.body);
-    await saveWorkflow(wf);
-    res.json(wf);
+    const trace = req.body as RawTrace;
+    // Structure WITHOUT the switchTab actions (brain stays untouched), then stamp per-step tabs and
+    // re-insert the switchTab steps in the runtime so the player can route a multi-tab replay.
+    const wf = await structure(stripSwitchTabs(trace));
+    const tabbed = applyTabs(wf, trace);
+    await saveWorkflow(tabbed);
+    res.json(tabbed);
   } catch (e) {
     res.status(500).json({ error: (e as Error).message });
   }
@@ -100,21 +105,23 @@ app.post("/api/replay", async (req, res) => {
 
   await closeLiveBrowsers(); // reap the PREVIOUS run's lingering result windows before opening this run's
 
-  const control = structuredClone(pristine); // never healed — always hits the brittle selector
-  const healing = structuredClone(pristine); // re-grounds live every run; write-back logs to history
+  let control = structuredClone(pristine); // never healed — always hits the brittle selector
+  let healing = structuredClone(pristine); // re-grounds live every run; write-back logs to history
   healing.version = history.length; // onHeal bumps this → monotonic v2, v3, … in the memory trail
 
-  // ENGINE=browserbase: cloud browsers can't reach the operator's localhost mock, so replay against
-  // the public MOCK_URL. Unset (local mode) → keep the workflow's stored startUrl untouched.
-  const base = process.env.MOCK_URL ?? pristine.startUrl;
+  // ENGINE=browserbase: a workflow recorded against the operator's localhost can't be reached by the
+  // cloud browser, so swap a localhost startUrl for the public MOCK_URL. Workflows recorded against a
+  // public URL (e.g. the v2 LeadSheet) already work from the cloud → leave those untouched.
+  const isLocalHost = /^https?:\/\/(localhost|127\.0\.0\.1)/i.test(pristine.startUrl);
+  const base = process.env.MOCK_URL && isLocalHost ? process.env.MOCK_URL : pristine.startUrl;
   control.startUrl = base;
   healing.startUrl = base;
 
-  // Demo harness: ?break=1 makes the mock page rename Submit→Send so #submit-btn misses.
+  // Demo "break the site": multi-tab → rename the LinkedIn Send (+ open the broken page directly);
+  // single-page → rename the form Submit. The healer must re-ground the renamed control by intent.
   if (breakSite) {
-    const sep = base.includes("?") ? "&" : "?";
-    control.startUrl += `${sep}break=1`;
-    healing.startUrl += `${sep}break=1`;
+    control = breakForDemo(control);
+    healing = breakForDemo(healing);
   }
 
   const [controlOk, healingOk] = await Promise.all([
